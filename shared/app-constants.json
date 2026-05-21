@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "firebaseProjectId": "med-test-7a252",
+  "clientNames": ["web", "desktop", "ios"],
+  "categories": ["prescription", "over-the-counter", "vitamin", "supplement"],
+  "intakeInstructions": ["food", "water", "empty"],
+  "doseStatuses": ["taken", "skipped", "missed"],
+  "computedDoseStatuses": ["due", "auto-missed"],
+  "dateKeyFormat": "yyyy-mm-dd",
+  "defaultScheduleSlots": [
+    { "id": "morning", "label": "Morning", "time": "08:00" },
+    { "id": "lunch", "label": "Lunch", "time": "12:30" },
+    { "id": "evening", "label": "Evening", "time": "18:00" },
+    { "id": "bedtime", "label": "Bedtime", "time": "21:30" }
+  ],
+  "medicalDisclaimer": "This app is for personal organization only and does not provide medical advice. Confirm medication details with the prescription label, doctor, or pharmacist."
+}

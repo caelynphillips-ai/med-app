@@ -1,0 +1,14 @@
+{
+  "name": "med-organizer-workspace",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "web": "node scripts/serve-web.mjs",
+    "desktop:sync": "node apps/desktop/scripts/sync-renderer.mjs",
+    "desktop": "npm --prefix apps/desktop start",
+    "desktop:build": "npm --prefix apps/desktop run build",
+    "desktop:dist": "npm --prefix apps/desktop run dist",
+    "rxterms:import": "node scripts/import-rxterms.mjs"
+  }
+}

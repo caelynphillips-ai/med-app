@@ -1,0 +1,41 @@
+name: MedOrganizer
+options:
+  bundleIdPrefix: com.medorganizer
+  deploymentTarget:
+    iOS: "16.0"
+packages:
+  Firebase:
+    url: https://github.com/firebase/firebase-ios-sdk.git
+    from: "11.0.0"
+  GoogleSignIn:
+    url: https://github.com/google/GoogleSignIn-iOS.git
+    from: "8.0.0"
+targets:
+  MedOrganizer:
+    type: application
+    platform: iOS
+    sources:
+      - MedOrganizer/MedOrganizer
+    resources:
+      - MedOrganizer/MedOrganizer/Resources
+      - path: MedOrganizer/MedOrganizer/GoogleService-Info.plist
+        optional: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.medorganizer.ios
+        INFOPLIST_FILE: MedOrganizer/MedOrganizer/Info.plist
+        CURRENT_PROJECT_VERSION: 1
+        MARKETING_VERSION: 1.0.0
+        SWIFT_VERSION: 5.9
+        TARGETED_DEVICE_FAMILY: "1,2"
+    dependencies:
+      - package: Firebase
+        product: FirebaseCore
+      - package: Firebase
+        product: FirebaseAuth
+      - package: Firebase
+        product: FirebaseFirestore
+      - package: Firebase
+        product: FirebaseStorage
+      - package: GoogleSignIn
+        product: GoogleSignIn

@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://med-organizer.local/schema/dose-status.schema.json",
+  "title": "Dose Status Document",
+  "type": "object",
+  "required": ["statuses"],
+  "properties": {
+    "statuses": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["status", "updatedAt"],
+        "properties": {
+          "status": { "type": "string", "enum": ["taken", "skipped", "missed"] },
+          "updatedAt": { "type": "string" },
+          "updatedBy": { "type": ["string", "null"] },
+          "updatedFrom": { "type": ["string", "null"], "enum": ["web", "desktop", "ios", null] }
+        },
+        "additionalProperties": true
+      }
+    },
+    "updatedAt": {},
+    "updatedBy": { "type": ["string", "null"] },
+    "updatedFrom": { "type": ["string", "null"], "enum": ["web", "desktop", "ios", null] }
+  },
+  "additionalProperties": true
+}

@@ -1,0 +1,1901 @@
+import {
+  GoogleAuthProvider,
+  getAuth,
+  onAuthStateChanged,
+  signInWithPopup,
+  signOut,
+} from "https://www.gstatic.com/firebasejs/10.12.4/firebase-auth.js";
+import {
+  addDoc,
+  collection,
+  deleteDoc,
+  deleteField,
+  doc,
+  getDoc,
+  getDocs,
+  getFirestore,
+  limit,
+  onSnapshot,
+  orderBy,
+  query,
+  serverTimestamp,
+  setDoc,
+  updateDoc,
+  writeBatch,
+} from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
+import {
+  deleteObject,
+  getDownloadURL,
+  getStorage,
+  ref,
+  uploadBytes,
+} from "https://www.gstatic.com/firebasejs/10.12.4/firebase-storage.js";
+import { app as firebaseApp } from "../firebaseConfig.js";
+import {
+  fetchRxTermsSuggestions,
+  mergeMedicationEntries,
+  normalizeCategory,
+  normalizeMedicationEntry,
+} from "./rxterms.js";
+
+const auth = getAuth(firebaseApp);
+const provider = new GoogleAuthProvider();
+const db = getFirestore(firebaseApp);
+const storage = getStorage(firebaseApp);
+const CLIENT_NAME =
+  new URLSearchParams(window.location.search).get("client") === "desktop" || window.medOrganizerDesktop?.client === "desktop"
+    ? "desktop"
+    : "web";
+const MEDICATION_SCHEMA_VERSION = 1;
+
+const root = document.querySelector("#app");
+const liveRxTermsCache = new Map();
+let liveRxTermsTimer = null;
+let liveRxTermsRequestId = 0;
+
+const slotDefinitions = [
+  { id: "morning", label: "Morning", time: "08:00" },
+  { id: "lunch", label: "Lunch", time: "12:30" },
+  { id: "evening", label: "Evening", time: "18:00" },
+  { id: "bedtime", label: "Bedtime", time: "21:30" },
+];
+
+const categories = {
+  prescription: "Prescription",
+  "over-the-counter": "Over-the-counter",
+  vitamin: "Vitamin",
+  supplement: "Supplement",
+};
+
+const intakeLabels = {
+  food: "Take with food",
+  water: "Take with water",
+  empty: "Take on an empty stomach",
+};
+
+const sampleMedications = [
+  {
+    name: "Lisinopril",
+    category: "prescription",
+    purpose: "for blood pressure",
+    dosage: "10 mg",
+    timesPerDay: 1,
+    schedule: [{ id: "morning", label: "Morning", time: "08:00" }],
+    intake: "water",
+    foodInstructions: "May be taken with or without food. Take with water.",
+    notes: "Check blood pressure regularly. Refill before the last week of the month.",
+    reminder: { enabled: true, leadMinutes: 15 },
+    attachment: null,
+    isSample: true,
+  },
+  {
+    name: "Vitamin D3",
+    category: "vitamin",
+    purpose: "for low vitamin D",
+    dosage: "1 capsule",
+    timesPerDay: 1,
+    schedule: [{ id: "lunch", label: "Lunch", time: "12:30" }],
+    intake: "food",
+    foodInstructions: "Often taken with food. Follow the product label or clinician instructions.",
+    notes: "Keep near lunch items so it is easy to remember.",
+    reminder: { enabled: true, leadMinutes: 10 },
+    attachment: null,
+    isSample: true,
+  },
+  {
+    name: "Iron",
+    category: "supplement",
+    purpose: "for low iron",
+    dosage: "65 mg",
+    timesPerDay: 1,
+    schedule: [{ id: "evening", label: "Evening", time: "18:00" }],
+    intake: "empty",
+    foodInstructions: "Often taken on an empty stomach, but may be taken with food if stomach upset occurs.",
+    notes: "Avoid taking at the same time as calcium unless a clinician says otherwise.",
+    reminder: { enabled: false, leadMinutes: 15 },
+    attachment: null,
+    isSample: true,
+  },
+];
+
+const state = {
+  user: null,
+  booting: true,
+  loadingMeds: false,
+  busy: false,
+  view: localStorage.getItem("medOrganizerView") || "dashboard",
+  selectedMedId: null,
+  editMode: false,
+  meds: [],
+  statuses: {},
+  toast: null,
+  toastType: "info",
+  unsubscribeMeds: null,
+  unsubscribeStatus: null,
+  authReadyToken: 0,
+  medicationDatabase: [],
+  formSuggestions: [],
+  activeSuggestionIndex: -1,
+  liveSuggestions: [],
+  liveSuggestionStatus: "idle",
+};
+
+void loadMedicationDatabase();
+
+onAuthStateChanged(auth, async (user) => {
+  state.authReadyToken += 1;
+  const token = state.authReadyToken;
+  cleanupSubscriptions();
+  state.user = user;
+  state.booting = false;
+  state.loadingMeds = Boolean(user);
+  state.meds = [];
+  state.statuses = {};
+  state.selectedMedId = null;
+  state.editMode = false;
+  render();
+
+  if (!user) {
+    return;
+  }
+
+  try {
+    await ensureSampleData(user);
+  } catch (error) {
+    showToast(messageFromError(error), "error");
+  }
+
+  if (token !== state.authReadyToken) {
+    return;
+  }
+
+  subscribeToMedications(user.uid);
+  subscribeToDoseStatus(user.uid);
+});
+
+window.addEventListener("beforeunload", cleanupSubscriptions);
+
+root.addEventListener("click", async (event) => {
+  const control = event.target.closest("[data-action]");
+  if (!control) {
+    return;
+  }
+
+  const { action } = control.dataset;
+
+  if (action === "sign-in") {
+    await handleSignIn();
+  }
+
+  if (action === "sign-out") {
+    await handleSignOut();
+  }
+
+  if (action === "navigate") {
+    setView(control.dataset.view);
+  }
+
+  if (action === "add-medication") {
+    state.selectedMedId = null;
+    state.editMode = true;
+    setView("add");
+  }
+
+  if (action === "view-medication") {
+    state.selectedMedId = control.dataset.id;
+    state.editMode = false;
+    setView("detail");
+  }
+
+  if (action === "edit-medication") {
+    state.selectedMedId = control.dataset.id;
+    state.editMode = true;
+    setView("detail");
+  }
+
+  if (action === "cancel-form") {
+    if (state.selectedMedId) {
+      state.editMode = false;
+      setView("detail");
+    } else {
+      setView("medications");
+    }
+  }
+
+  if (action === "mark-dose") {
+    await markDose(control.dataset.key, control.dataset.status);
+  }
+
+  if (action === "delete-medication") {
+    await deleteMedication(control.dataset.id);
+  }
+
+  if (action === "remove-attachment") {
+    await removeAttachment(control.dataset.id);
+  }
+
+  if (action === "select-medication-suggestion") {
+    selectMedicationSuggestion(control.dataset.medication);
+  }
+
+  if (action === "apply-dosage") {
+    applySmartValue("dosage", control.dataset.value);
+  }
+
+  if (action === "apply-use") {
+    applyCommonUseValue(control.dataset.value);
+  }
+
+  if (action === "remove-use") {
+    removeCommonUseValue(control.dataset.value);
+  }
+});
+
+root.addEventListener("input", (event) => {
+  if (event.target.matches("#name")) {
+    updateMedicationSuggestions(event.target.value, { nameChanged: true });
+  }
+
+  if (event.target.matches("#purpose")) {
+    updateSelectedUseChips();
+  }
+});
+
+root.addEventListener("focusin", (event) => {
+  if (event.target.matches("#name")) {
+    updateMedicationSuggestions(event.target.value);
+  }
+});
+
+root.addEventListener("keydown", (event) => {
+  if (!event.target.matches("#name")) {
+    return;
+  }
+
+  handleAutocompleteKeys(event);
+});
+
+root.addEventListener("submit", async (event) => {
+  const form = event.target.closest("#medication-form");
+  if (!form) {
+    return;
+  }
+  event.preventDefault();
+  await saveMedication(form);
+});
+
+document.addEventListener("click", (event) => {
+  if (!event.target.closest(".autocomplete-field")) {
+    closeMedicationSuggestions();
+  }
+});
+
+async function loadMedicationDatabase() {
+  try {
+    const response = await fetch("./src/medications.json");
+    if (!response.ok) {
+      throw new Error("Medication database could not be loaded.");
+    }
+    const medications = await response.json();
+    state.medicationDatabase = Array.isArray(medications) ? medications.map(normalizeMedicationEntry) : [];
+    hydrateSmartFillForCurrentForm();
+  } catch (error) {
+    console.warn(error);
+    state.medicationDatabase = [];
+  }
+}
+
+function cleanupSubscriptions() {
+  if (state.unsubscribeMeds) {
+    state.unsubscribeMeds();
+    state.unsubscribeMeds = null;
+  }
+
+  if (state.unsubscribeStatus) {
+    state.unsubscribeStatus();
+    state.unsubscribeStatus = null;
+  }
+}
+
+async function ensureSampleData(user) {
+  const settingsRef = doc(db, "users", user.uid, "appMeta", "settings");
+  const settingsSnap = await getDoc(settingsRef);
+  const hasSeeded = settingsSnap.exists() && settingsSnap.data().sampleSeeded;
+  if (hasSeeded) {
+    return;
+  }
+
+  const existing = await getDocs(query(collection(db, "users", user.uid, "medications"), limit(1)));
+  if (!existing.empty) {
+    await setDoc(
+      settingsRef,
+      {
+        sampleSeeded: true,
+        sampleSeededAt: serverTimestamp(),
+      },
+      { merge: true },
+    );
+    return;
+  }
+
+  const batch = writeBatch(db);
+  sampleMedications.forEach((med) => {
+    const medRef = doc(collection(db, "users", user.uid, "medications"));
+    batch.set(medRef, {
+      ...med,
+      schemaVersion: MEDICATION_SCHEMA_VERSION,
+      ownerId: user.uid,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      updatedBy: user.uid,
+      updatedFrom: CLIENT_NAME,
+    });
+  });
+  batch.set(
+    settingsRef,
+    {
+      sampleSeeded: true,
+      sampleSeededAt: serverTimestamp(),
+      displayName: user.displayName || "",
+    },
+    { merge: true },
+  );
+  await batch.commit();
+}
+
+function subscribeToMedications(uid) {
+  const medsQuery = query(collection(db, "users", uid, "medications"), orderBy("createdAt", "asc"));
+  state.unsubscribeMeds = onSnapshot(
+    medsQuery,
+    (snapshot) => {
+      state.meds = snapshot.docs.map((entry) => ({
+        id: entry.id,
+        ...entry.data(),
+      }));
+      state.loadingMeds = false;
+      render();
+    },
+    (error) => {
+      state.loadingMeds = false;
+      showToast(messageFromError(error), "error");
+      render();
+    },
+  );
+}
+
+function subscribeToDoseStatus(uid) {
+  const statusRef = doc(db, "users", uid, "doseStatus", todayKey());
+  state.unsubscribeStatus = onSnapshot(
+    statusRef,
+    (snapshot) => {
+      state.statuses = snapshot.exists() ? snapshot.data().statuses || {} : {};
+      render();
+    },
+    (error) => {
+      showToast(messageFromError(error), "error");
+    },
+  );
+}
+
+async function handleSignIn() {
+  setBusy(true);
+  try {
+    provider.setCustomParameters({ prompt: "select_account" });
+    await signInWithPopup(auth, provider);
+  } catch (error) {
+    showToast(messageFromError(error), "error");
+  } finally {
+    setBusy(false);
+  }
+}
+
+async function handleSignOut() {
+  setBusy(true);
+  try {
+    await signOut(auth);
+    setView("dashboard");
+  } catch (error) {
+    showToast(messageFromError(error), "error");
+  } finally {
+    setBusy(false);
+  }
+}
+
+async function saveMedication(form) {
+  if (!state.user) {
+    showToast("Please sign in before saving medications.", "error");
+    return;
+  }
+
+  const formData = new FormData(form);
+  const selectedSchedule = slotDefinitions
+    .filter((slot) => formData.get(`slot-${slot.id}`) === "on")
+    .map((slot) => ({
+      id: slot.id,
+      label: slot.label,
+      time: formData.get(`time-${slot.id}`) || slot.time,
+    }))
+    .sort((a, b) => minutesFromTime(a.time) - minutesFromTime(b.time));
+
+  if (selectedSchedule.length === 0) {
+    showToast("Choose at least one time of day.", "error");
+    return;
+  }
+
+  const timesPerDay = Number(formData.get("timesPerDay")) || selectedSchedule.length;
+  const payload = {
+    schemaVersion: MEDICATION_SCHEMA_VERSION,
+    name: cleanText(formData.get("name")),
+    genericName: cleanText(formData.get("genericName")),
+    category: formData.get("category"),
+    purpose: cleanText(formData.get("purpose")),
+    dosage: cleanText(formData.get("dosage")),
+    timesPerDay,
+    schedule: selectedSchedule,
+    intake: formData.get("intake"),
+    foodInstructions: cleanText(formData.get("foodInstructions")),
+    notes: cleanText(formData.get("notes")),
+    reminder: {
+      enabled: formData.get("reminderEnabled") === "on",
+      leadMinutes: Number(formData.get("leadMinutes")) || 15,
+    },
+    ownerId: state.user.uid,
+    updatedAt: serverTimestamp(),
+    updatedBy: state.user.uid,
+    updatedFrom: CLIENT_NAME,
+  };
+
+  if (!payload.name || !payload.purpose || !payload.dosage) {
+    showToast("Name, purpose, and dosage are required.", "error");
+    return;
+  }
+
+  setBusy(true);
+  try {
+    let medId = state.selectedMedId;
+    let medRef;
+
+    if (medId) {
+      medRef = doc(db, "users", state.user.uid, "medications", medId);
+      await updateDoc(medRef, payload);
+    } else {
+      const newDoc = await addDoc(collection(db, "users", state.user.uid, "medications"), {
+        ...payload,
+        createdAt: serverTimestamp(),
+      });
+      medId = newDoc.id;
+      medRef = newDoc;
+    }
+
+    const file = form.querySelector('input[name="attachment"]').files[0];
+    if (file) {
+      const attachment = await uploadAttachment(medId, file);
+      await updateDoc(medRef, {
+        attachment,
+        updatedAt: serverTimestamp(),
+        updatedBy: state.user.uid,
+        updatedFrom: CLIENT_NAME,
+      });
+    }
+
+    state.selectedMedId = medId;
+    state.editMode = false;
+    setView("detail");
+    showToast("Medication saved.");
+  } catch (error) {
+    showToast(messageFromError(error), "error");
+  } finally {
+    setBusy(false);
+  }
+}
+
+async function uploadAttachment(medId, file) {
+  const safeName = file.name.replace(/[^a-z0-9._-]/gi, "_");
+  const fileRef = ref(storage, `users/${state.user.uid}/medications/${medId}/${Date.now()}-${safeName}`);
+  await uploadBytes(fileRef, file, { contentType: file.type || "application/octet-stream" });
+  const url = await getDownloadURL(fileRef);
+  return {
+    name: file.name,
+    path: fileRef.fullPath,
+    url,
+    contentType: file.type || "application/octet-stream",
+    uploadedAt: new Date().toISOString(),
+  };
+}
+
+async function removeAttachment(medId) {
+  const med = getMedication(medId);
+  if (!state.user || !med?.attachment?.path) {
+    return;
+  }
+
+  setBusy(true);
+  try {
+    await deleteObject(ref(storage, med.attachment.path)).catch(() => {});
+    await updateDoc(doc(db, "users", state.user.uid, "medications", medId), {
+      attachment: deleteField(),
+      updatedAt: serverTimestamp(),
+    });
+    showToast("Attachment removed.");
+  } catch (error) {
+    showToast(messageFromError(error), "error");
+  } finally {
+    setBusy(false);
+  }
+}
+
+async function deleteMedication(medId) {
+  const med = getMedication(medId);
+  if (!state.user || !med) {
+    return;
+  }
+
+  const confirmed = window.confirm(`Delete ${med.name}? This removes the medication from your organizer.`);
+  if (!confirmed) {
+    return;
+  }
+
+  setBusy(true);
+  try {
+    if (med.attachment?.path) {
+      await deleteObject(ref(storage, med.attachment.path)).catch(() => {});
+    }
+    await deleteDoc(doc(db, "users", state.user.uid, "medications", medId));
+    state.selectedMedId = null;
+    state.editMode = false;
+    setView("medications");
+    showToast("Medication deleted.");
+  } catch (error) {
+    showToast(messageFromError(error), "error");
+  } finally {
+    setBusy(false);
+  }
+}
+
+async function markDose(doseKey, status) {
+  if (!state.user) {
+    showToast("Please sign in before updating your schedule.", "error");
+    return;
+  }
+
+  const statusRef = doc(db, "users", state.user.uid, "doseStatus", todayKey());
+  setBusy(true);
+  try {
+    await setDoc(
+      statusRef,
+      {
+        statuses: {
+          [doseKey]: {
+            status,
+            updatedAt: new Date().toISOString(),
+            updatedBy: state.user.uid,
+            updatedFrom: CLIENT_NAME,
+          },
+        },
+        updatedAt: serverTimestamp(),
+        updatedBy: state.user.uid,
+        updatedFrom: CLIENT_NAME,
+      },
+      { merge: true },
+    );
+  } catch (error) {
+    showToast(messageFromError(error), "error");
+  } finally {
+    setBusy(false);
+  }
+}
+
+function setView(view) {
+  state.view = view;
+  localStorage.setItem("medOrganizerView", view);
+  render();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function setBusy(value) {
+  state.busy = value;
+  render();
+}
+
+function showToast(message, type = "info") {
+  state.toast = message;
+  state.toastType = type;
+  render();
+  window.clearTimeout(showToast.timer);
+  showToast.timer = window.setTimeout(() => {
+    state.toast = null;
+    state.toastType = "info";
+    render();
+  }, 4200);
+}
+
+function render() {
+  if (state.booting) {
+    root.innerHTML = `
+      <div class="boot-screen" role="status" aria-live="polite">
+        <div class="boot-mark">M</div>
+        <p>Loading your organizer...</p>
+      </div>
+    `;
+    return;
+  }
+
+  root.innerHTML = `
+    ${renderTopBar()}
+    ${state.user ? renderSignedInApp() : renderSignedOutApp()}
+    ${state.toast ? `<div class="toast ${state.toastType === "error" ? "error" : ""}" role="status">${escapeHtml(state.toast)}</div>` : ""}
+  `;
+}
+
+function renderTopBar() {
+  const user = state.user;
+  return `
+    <header class="top-app-bar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">M</div>
+        <div>
+          <h1>Med Organizer</h1>
+          <p>Medication and vitamin schedule</p>
+        </div>
+      </div>
+      <div class="top-actions">
+        ${
+          user
+            ? `
+              <div class="user-pill" title="${escapeHtml(user.email || user.displayName || "Signed in")}">
+                <div class="avatar" aria-hidden="true">${escapeHtml(initialsForUser(user))}</div>
+                <div>
+                  <strong>${escapeHtml(user.displayName || "Signed in")}</strong>
+                  <span>${escapeHtml(user.email || "")}</span>
+                </div>
+              </div>
+              <button class="button text" type="button" data-action="sign-out" ${state.busy ? "disabled" : ""}>Sign out</button>
+            `
+            : `<button class="button primary" type="button" data-action="sign-in" ${state.busy ? "disabled" : ""}>Sign in with Google</button>`
+        }
+      </div>
+    </header>
+  `;
+}
+
+function renderSignedOutApp() {
+  const previewDoses = sampleMedications
+    .flatMap((med) => med.schedule.map((slot) => ({ med, slot })))
+    .sort((a, b) => minutesFromTime(a.slot.time) - minutesFromTime(b.slot.time));
+
+  return `
+    <main class="auth-page">
+      <section class="auth-hero">
+        <p class="eyebrow">Personal organizer</p>
+        <h2>Keep daily medications, vitamins, and supplements in one calm place.</h2>
+        <p>Sign in to save your list, track today's doses, upload label photos, and keep notes with each item.</p>
+        <div class="preview-stack" aria-label="Sample schedule preview">
+          ${previewDoses
+            .map(
+              ({ med, slot }) => `
+                <article class="mini-dose">
+                  <span>${escapeHtml(formatClock(slot.time))}</span>
+                  <div>
+                    <strong>${escapeHtml(med.name)}</strong>
+                    <small>${escapeHtml(med.dosage)} - ${escapeHtml(med.purpose)}</small>
+                  </div>
+                </article>
+              `,
+            )
+            .join("")}
+        </div>
+      </section>
+      <aside class="auth-panel">
+        <h2>Use Google sign-in</h2>
+        <p class="subtle">Your organizer is saved in Firebase for your account. New accounts start with sample data so the dashboard is useful right away.</p>
+        <button class="button primary full" type="button" data-action="sign-in" ${state.busy ? "disabled" : ""}>Continue with Google</button>
+        <div class="notice">
+          <strong>Medical disclaimer</strong>
+          <span>This app is for personal organization only and does not provide medical advice.</span>
+        </div>
+      </aside>
+    </main>
+  `;
+}
+
+function renderSignedInApp() {
+  return `
+    <div class="app-shell">
+      ${renderNavigation()}
+      <main class="content" id="main-content">
+        ${
+          state.loadingMeds
+            ? `
+              <section class="page">
+                <div class="page-header">
+                  <div>
+                    <p class="eyebrow">Loading</p>
+                    <h2 class="page-title">Getting your organizer ready</h2>
+                  </div>
+                </div>
+                <div class="loading-bar" aria-label="Loading medication list"></div>
+              </section>
+            `
+            : renderActiveView()
+        }
+      </main>
+    </div>
+  `;
+}
+
+function renderNavigation() {
+  const links = [
+    { view: "dashboard", label: "Today", icon: "T" },
+    { view: "medications", label: "Medications", icon: "M" },
+    { view: "reminders", label: "Reminders", icon: "R" },
+  ];
+  return `
+    <nav class="nav-rail" aria-label="Main navigation">
+      ${links
+        .map(
+          (link) => `
+            <button class="nav-button" type="button" data-action="navigate" data-view="${link.view}" aria-current="${state.view === link.view ? "page" : "false"}">
+              <span class="nav-icon" aria-hidden="true">${link.icon}</span>
+              <span class="nav-label">${link.label}</span>
+            </button>
+          `,
+        )
+        .join("")}
+    </nav>
+  `;
+}
+
+function renderActiveView() {
+  if (state.view === "medications") {
+    return renderMedicationList();
+  }
+
+  if (state.view === "reminders") {
+    return renderReminders();
+  }
+
+  if (state.view === "add") {
+    return renderMedicationForm();
+  }
+
+  if (state.view === "detail") {
+    const med = getMedication(state.selectedMedId);
+    if (!med) {
+      return renderMedicationList();
+    }
+    return state.editMode ? renderMedicationForm(med) : renderMedicationDetail(med);
+  }
+
+  return renderDashboard();
+}
+
+function renderDashboard() {
+  const doses = getTodayDoses();
+  const takenCount = doses.filter((dose) => dose.status === "taken").length;
+  const openDoses = doses.filter((dose) => dose.status === "due" || dose.status === "auto-missed");
+  const nextDose = openDoses.find((dose) => dose.sortMinutes >= currentMinutes()) || openDoses[0];
+
+  return `
+    <section class="page">
+      <div class="page-header">
+        <div>
+          <p class="eyebrow">${escapeHtml(fullDateLabel())}</p>
+          <h2 class="page-title">Today's schedule</h2>
+        </div>
+        <div class="toolbar">
+          <button class="button primary" type="button" data-action="add-medication">Add medication</button>
+          <button class="button tonal" type="button" data-action="navigate" data-view="medications">View list</button>
+        </div>
+      </div>
+
+      <div class="grid stats-grid">
+        <article class="stat-card">
+          <span>Total doses</span>
+          <strong>${doses.length}</strong>
+        </article>
+        <article class="stat-card">
+          <span>Marked taken</span>
+          <strong>${takenCount}</strong>
+        </article>
+        <article class="stat-card">
+          <span>Next dose</span>
+          <strong>${nextDose ? escapeHtml(formatClock(nextDose.time)) : "Done"}</strong>
+        </article>
+      </div>
+
+      <div class="grid dashboard-grid">
+        <section class="grid" aria-label="Dose schedule">
+          ${
+            doses.length
+              ? `<div class="schedule-list">${doses.map(renderDoseCard).join("")}</div>`
+              : renderEmptyState("No doses scheduled yet", "Add a medication with at least one time of day to build today's schedule.", "Add medication")
+          }
+        </section>
+
+        <aside class="side-stack">
+          <div class="notice">
+            <strong>Medical disclaimer</strong>
+            <span>This app is for personal organization only and does not provide medical advice.</span>
+          </div>
+          ${renderReminderSummary()}
+          ${renderNotesSummary()}
+        </aside>
+      </div>
+    </section>
+  `;
+}
+
+function renderDoseCard(dose) {
+  const status = dose.status;
+  const displayStatus = status === "auto-missed" ? "missed" : status;
+  return `
+    <article class="schedule-card">
+      <div class="dose-time">
+        <strong>${escapeHtml(formatClock(dose.time))}</strong>
+        <span class="subtle">${escapeHtml(dose.label)}</span>
+      </div>
+      <div class="dose-body">
+        <div class="dose-heading">
+          <div>
+            <h3>${escapeHtml(dose.med.name)}</h3>
+            <p class="subtle">${escapeHtml(dose.med.dosage)} - ${escapeHtml(dose.med.purpose)}</p>
+          </div>
+          <span class="chip ${escapeHtml(dose.med.category)}">${escapeHtml(categories[dose.med.category] || dose.med.category)}</span>
+        </div>
+        <div class="chip-row">
+          <span class="status-pill ${displayStatus}">${escapeHtml(statusLabel(status))}</span>
+          <span class="chip">${escapeHtml(intakeLabels[dose.med.intake] || "No intake note")}</span>
+          ${
+            dose.med.reminder?.enabled
+              ? `<span class="chip">Reminder ${Number(dose.med.reminder.leadMinutes) || 15} min before</span>`
+              : ""
+          }
+        </div>
+        <div class="segmented-control" aria-label="Dose status for ${escapeHtml(dose.med.name)} at ${escapeHtml(dose.label)}">
+          ${["taken", "skipped", "missed"]
+            .map(
+              (item) => `
+                <button
+                  class="segmented-button ${item} ${displayStatus === item ? "active" : ""}"
+                  type="button"
+                  data-action="mark-dose"
+                  data-key="${escapeHtml(dose.key)}"
+                  data-status="${item}"
+                  ${state.busy ? "disabled" : ""}
+                >${titleCase(item)}</button>
+              `,
+            )
+            .join("")}
+        </div>
+        <button class="button detail-button" type="button" data-action="view-medication" data-id="${escapeHtml(dose.med.id)}">Open details</button>
+      </div>
+    </article>
+  `;
+}
+
+function renderMedicationList() {
+  return `
+    <section class="page">
+      <div class="page-header">
+        <div>
+          <p class="eyebrow">${state.meds.length} saved</p>
+          <h2 class="page-title">Medication list</h2>
+        </div>
+        <button class="button primary" type="button" data-action="add-medication">Add medication</button>
+      </div>
+      ${
+        state.meds.length
+          ? `<div class="grid med-grid">${state.meds.map(renderMedicationCard).join("")}</div>`
+          : renderEmptyState("No medications saved", "Add a prescription, over-the-counter medicine, vitamin, or supplement.", "Add medication")
+      }
+    </section>
+  `;
+}
+
+function renderMedicationCard(med) {
+  const times = normalizedSchedule(med)
+    .map((slot) => `${slot.label} ${formatClock(slot.time)}`)
+    .join(", ");
+  return `
+    <article class="card med-card">
+      <div class="med-card-footer">
+        <div>
+          <h3>${escapeHtml(med.name)}</h3>
+          <p class="subtle">${escapeHtml(med.purpose)}</p>
+        </div>
+        <span class="chip ${escapeHtml(med.category)}">${escapeHtml(categories[med.category] || med.category)}</span>
+      </div>
+      <div class="med-meta">
+        <span class="chip">${escapeHtml(med.dosage)}</span>
+        <span class="chip">${Number(med.timesPerDay) || normalizedSchedule(med).length}x daily</span>
+        <span class="chip">${escapeHtml(intakeLabels[med.intake] || "No intake note")}</span>
+      </div>
+      <p class="subtle">${escapeHtml(times || "No schedule times")}</p>
+      <div class="med-card-footer">
+        <span class="status-pill ${med.reminder?.enabled ? "taken" : ""}">${med.reminder?.enabled ? "Reminder on" : "Reminder off"}</span>
+        <button class="button tonal" type="button" data-action="view-medication" data-id="${escapeHtml(med.id)}">Details</button>
+      </div>
+    </article>
+  `;
+}
+
+function renderMedicationDetail(med) {
+  const schedule = normalizedSchedule(med);
+  return `
+    <section class="page">
+      <div class="page-header">
+        <div>
+          <p class="eyebrow">${escapeHtml(categories[med.category] || med.category)}</p>
+          <h2 class="page-title">${escapeHtml(med.name)}</h2>
+        </div>
+        <div class="detail-actions">
+          <button class="button tonal" type="button" data-action="navigate" data-view="dashboard">Back</button>
+          <button class="button tonal" type="button" data-action="edit-medication" data-id="${escapeHtml(med.id)}">Edit</button>
+          <button class="button danger" type="button" data-action="delete-medication" data-id="${escapeHtml(med.id)}">Delete</button>
+        </div>
+      </div>
+
+      <div class="detail-layout">
+        <article class="detail-card grid">
+          <div class="detail-header">
+            <div>
+              <h3>Purpose</h3>
+              <p class="subtle">${escapeHtml(med.purpose)}</p>
+            </div>
+            <span class="chip ${escapeHtml(med.category)}">${escapeHtml(categories[med.category] || med.category)}</span>
+          </div>
+          <div class="detail-grid">
+            <div class="detail-item">
+              <span>Dosage</span>
+              <strong>${escapeHtml(med.dosage)}</strong>
+            </div>
+            <div class="detail-item">
+              <span>Times per day</span>
+              <strong>${Number(med.timesPerDay) || schedule.length}</strong>
+            </div>
+            <div class="detail-item">
+              <span>Instructions</span>
+              <strong>${escapeHtml(med.foodInstructions || intakeLabels[med.intake] || "Not specified")}</strong>
+            </div>
+            <div class="detail-item">
+              <span>Reminder</span>
+              <strong>${med.reminder?.enabled ? `${Number(med.reminder.leadMinutes) || 15} minutes before` : "Off"}</strong>
+            </div>
+          </div>
+          <div class="detail-item">
+            <span>Notes</span>
+            <strong>${escapeHtml(med.notes || "No notes yet")}</strong>
+          </div>
+        </article>
+
+        <aside class="side-stack">
+          <div class="card">
+            <h3 class="section-title">Schedule</h3>
+            <div class="reminder-list" style="margin-top: 12px;">
+              ${schedule
+                .map(
+                  (slot) => `
+                    <div class="detail-item">
+                      <span>${escapeHtml(slot.label)}</span>
+                      <strong>${escapeHtml(formatClock(slot.time))}</strong>
+                    </div>
+                  `,
+                )
+                .join("")}
+            </div>
+          </div>
+          <div class="card">
+            <h3 class="section-title">Attachment</h3>
+            ${
+              med.attachment?.url
+                ? `
+                  <div class="attachment-preview" style="margin-top: 12px;">
+                    <strong>${escapeHtml(med.attachment.name || "Uploaded file")}</strong>
+                    <a href="${escapeHtml(med.attachment.url)}" target="_blank" rel="noreferrer">Open uploaded file</a>
+                    <button class="button text" type="button" data-action="remove-attachment" data-id="${escapeHtml(med.id)}" ${state.busy ? "disabled" : ""}>Remove attachment</button>
+                  </div>
+                `
+                : `<p class="subtle">No label photo or instruction file uploaded yet.</p>`
+            }
+          </div>
+        </aside>
+      </div>
+    </section>
+  `;
+}
+
+function renderMedicationForm(med = null) {
+  const isEditing = Boolean(med);
+  const schedule = scheduleMapForForm(med);
+  const selectedCount = Object.values(schedule).filter((slot) => slot.checked).length || 1;
+  const timesPerDay = med?.timesPerDay || selectedCount;
+  const suggestionRecord = findMedicationRecordByName(med?.name || "");
+  return `
+    <section class="page">
+      <div class="page-header">
+        <div>
+          <p class="eyebrow">${isEditing ? "Edit medication" : "New medication"}</p>
+          <h2 class="page-title">${isEditing ? escapeHtml(med.name) : "Add medication"}</h2>
+        </div>
+      </div>
+
+      <form id="medication-form" class="form-card">
+        <div class="form-grid">
+          <div class="top-form-stack full">
+            <div class="field autocomplete-field">
+              <label for="name">Name</label>
+              <input
+                id="name"
+                name="name"
+                value="${escapeAttribute(med?.name || "")}"
+                required
+                autocomplete="off"
+                role="combobox"
+                aria-autocomplete="list"
+                aria-expanded="false"
+                aria-controls="name-suggestions"
+                aria-describedby="name-autocomplete-help"
+              />
+              <span id="name-autocomplete-help" class="helper">Start typing to search the local medication list.</span>
+              <div id="name-suggestions" class="autocomplete-list" role="listbox" hidden></div>
+            </div>
+            <div class="field">
+              <label for="purpose">Common uses / purpose</label>
+              <input
+                id="purpose"
+                name="purpose"
+                value="${escapeAttribute(med?.purpose || "")}"
+                placeholder="Add a purpose or select common uses, e.g. blood pressure"
+                required
+              />
+              <div id="selected-use-chips" class="selected-use-row" aria-label="Selected common uses">
+                ${renderSelectedUseChips(med?.purpose || "")}
+              </div>
+              <div id="use-suggestions" class="inline-suggestion-panel" ${suggestionRecord?.commonUses?.length ? "" : "hidden"}>
+                ${suggestionRecord?.commonUses?.length ? renderUseSuggestions(suggestionRecord) : ""}
+              </div>
+            </div>
+            <div class="field">
+              <label for="category">Category</label>
+              <select id="category" name="category" required>
+                ${Object.entries(categories)
+                  .map(
+                    ([value, label]) => `<option value="${value}" ${normalizeCategory(med?.category) === value ? "selected" : ""}>${label}</option>`,
+                  )
+                  .join("")}
+              </select>
+            </div>
+          </div>
+          <input type="hidden" id="genericName" name="genericName" value="${escapeAttribute(med?.genericName || "")}" />
+          <div class="field full dosage-field">
+            <label for="dosage">Dosage</label>
+            <input id="dosage" name="dosage" value="${escapeAttribute(med?.dosage || "")}" placeholder="eg. 10 mg Tab" required />
+            <div id="dosage-suggestions" class="inline-suggestion-panel" aria-live="polite" ${suggestionRecord?.strengthsAndForms?.length ? "" : "hidden"}>
+              ${suggestionRecord?.strengthsAndForms?.length ? renderDosageSuggestions(suggestionRecord) : ""}
+            </div>
+          </div>
+          <div class="field">
+            <label for="timesPerDay">Times per day</label>
+            <input id="timesPerDay" name="timesPerDay" type="number" min="1" max="12" value="${escapeAttribute(String(timesPerDay))}" required />
+          </div>
+          <div class="field">
+            <label for="leadMinutes">Reminder lead time</label>
+            <select id="leadMinutes" name="leadMinutes">
+              ${[5, 10, 15, 30, 60]
+                .map(
+                  (minutes) =>
+                    `<option value="${minutes}" ${(Number(med?.reminder?.leadMinutes) || 15) === minutes ? "selected" : ""}>${minutes} minutes before</option>`,
+                )
+                .join("")}
+            </select>
+          </div>
+          <fieldset class="field full">
+            <legend class="fieldset-label">Specific times of day</legend>
+            <div class="slot-grid">
+              ${slotDefinitions
+                .map((slot) => {
+                  const value = schedule[slot.id] || { checked: false, time: slot.time };
+                  return `
+                    <div class="slot-card">
+                      <label>
+                        <input type="checkbox" name="slot-${slot.id}" ${value.checked ? "checked" : ""} />
+                        ${slot.label}
+                      </label>
+                      <input type="time" name="time-${slot.id}" value="${escapeAttribute(value.time || slot.time)}" aria-label="${slot.label} time" />
+                    </div>
+                  `;
+                })
+                .join("")}
+            </div>
+          </fieldset>
+          <fieldset class="field full">
+            <legend class="fieldset-label">How it should be taken</legend>
+            <div class="radio-grid">
+              ${Object.entries(intakeLabels)
+                .map(
+                  ([value, label]) => `
+                    <label class="radio-card">
+                      <input type="radio" name="intake" value="${value}" ${(med?.intake || "water") === value ? "checked" : ""} />
+                      ${label}
+                    </label>
+                  `,
+                )
+                .join("")}
+            </div>
+          </fieldset>
+          <div class="field full">
+            <label for="foodInstructions">Instructions</label>
+            <input id="foodInstructions" name="foodInstructions" value="${escapeAttribute(med?.foodInstructions || "")}" placeholder="Add instructions, e.g. take with food, before bed, avoid alcohol" />
+          </div>
+          <label class="checkbox-row field full">
+            <input type="checkbox" name="reminderEnabled" ${med?.reminder?.enabled ? "checked" : ""} />
+            Show reminder-style cards in the app
+          </label>
+          <div class="field full">
+            <label for="notes">Notes</label>
+            <textarea id="notes" name="notes" placeholder="Side effects, doctor instructions, refill info, or reminders">${escapeHtml(med?.notes || "")}</textarea>
+          </div>
+          <div class="field full">
+            <label for="attachment">Label photo or instruction file</label>
+            <input id="attachment" name="attachment" type="file" accept="image/*,.pdf" />
+            <span class="helper">Saved to Firebase Storage. Existing attachments stay in place unless you remove or replace them.</span>
+          </div>
+          <div class="smart-safety-note field full">
+            <strong>Medical disclaimer</strong>
+            <span>This app is for personal organization only and does not provide medical advice. Confirm medication details with the prescription label, doctor, or pharmacist.</span>
+          </div>
+        </div>
+        <div class="form-actions">
+          <button class="button primary" type="submit" ${state.busy ? "disabled" : ""}>Save medication</button>
+          <button class="button secondary" type="button" data-action="cancel-form">Cancel</button>
+        </div>
+      </form>
+    </section>
+  `;
+}
+
+function renderDosageSuggestions(record) {
+  return `
+    <div class="smart-chip-group">
+      <span class="smart-chip-label">Available strength/form options</span>
+      <div class="suggestion-chip-row">
+        ${(record.strengthsAndForms || [])
+          .map(
+            (strength) => `
+              <button class="suggestion-chip" type="button" data-action="apply-dosage" data-value="${escapeAttribute(strength)}">
+                ${escapeHtml(strength)}
+              </button>
+            `,
+          )
+          .join("")}
+      </div>
+    </div>
+  `;
+}
+
+function renderUseSuggestions(record) {
+  return `
+    <div class="smart-chip-group">
+      <span class="smart-chip-label">Common use options</span>
+      <div class="suggestion-chip-row">
+        ${(record.commonUses || [])
+          .map(
+            (use) => `
+              <button class="suggestion-chip" type="button" data-action="apply-use" data-value="${escapeAttribute(commonUseValue(use))}">
+                ${escapeHtml(commonUseLabel(use))}
+              </button>
+            `,
+          )
+          .join("")}
+      </div>
+    </div>
+  `;
+}
+
+function renderSelectedUseChips(value) {
+  const uses = parseCommonUses(value);
+  if (uses.length === 0) {
+    return "";
+  }
+
+  return uses
+    .map(
+      (use) => `
+        <span class="selected-use-chip">
+          <span>${escapeHtml(use)}</span>
+          <button
+            class="remove-use-button"
+            type="button"
+            data-action="remove-use"
+            data-value="${escapeAttribute(use)}"
+            aria-label="Remove ${escapeAttribute(use)}"
+          >x</button>
+        </span>
+      `,
+    )
+    .join("");
+}
+
+function updateMedicationSuggestions(query, options = {}) {
+  const input = document.querySelector("#name");
+  const list = document.querySelector("#name-suggestions");
+  const form = document.querySelector("#medication-form");
+  if (!input || !list || !form) {
+    return;
+  }
+
+  if (options.nameChanged) {
+    delete form.dataset.selectedMedication;
+    state.liveSuggestions = [];
+    state.liveSuggestionStatus = "idle";
+    updateMedicationHelperPanels(null);
+  }
+
+  const localSuggestions = getMedicationSuggestions(query);
+  const suggestions = mergeMedicationEntries(localSuggestions, state.liveSuggestions).slice(0, 8);
+  state.formSuggestions = suggestions;
+  state.activeSuggestionIndex = -1;
+
+  if (!cleanText(query)) {
+    closeMedicationSuggestions();
+    return;
+  }
+
+  scheduleLiveRxTermsSearch(query, localSuggestions.length);
+  list.hidden = false;
+  input.setAttribute("aria-expanded", "true");
+  list.innerHTML = renderSuggestionList(suggestions);
+}
+
+function closeMedicationSuggestions() {
+  const input = document.querySelector("#name");
+  const list = document.querySelector("#name-suggestions");
+  if (input) {
+    input.setAttribute("aria-expanded", "false");
+    input.removeAttribute("aria-activedescendant");
+  }
+  if (list) {
+    list.hidden = true;
+    list.innerHTML = "";
+  }
+  state.formSuggestions = [];
+  state.activeSuggestionIndex = -1;
+}
+
+function renderSuggestionList(suggestions) {
+  if (suggestions.length === 0) {
+    if (state.liveSuggestionStatus === "loading") {
+      return `<div class="autocomplete-status" role="status">Checking medication list...</div>`;
+    }
+    return `<div class="autocomplete-status">No matching medications found.</div>`;
+  }
+
+  const options = suggestions
+    .map(
+      (record, index) => `
+        <button
+          id="suggestion-${index}"
+          class="autocomplete-option"
+          type="button"
+          role="option"
+          data-action="select-medication-suggestion"
+          data-medication="${escapeAttribute(record.name)}"
+          aria-selected="false"
+        >
+          <span class="suggestion-main">
+            <strong>${escapeHtml(record.name)}</strong>
+          </span>
+          ${
+            record.strengthsAndForms?.length
+              ? `<small>${escapeHtml(record.strengthsAndForms.slice(0, 2).join(" | "))}</small>`
+              : `<small>${escapeHtml(categories[normalizeCategory(record.category)] || "Medication")}</small>`
+          }
+        </button>
+      `,
+    )
+    .join("");
+
+  const footer =
+    state.liveSuggestionStatus === "loading"
+      ? `<div class="autocomplete-status" role="status">Checking medication list...</div>`
+      : "";
+
+  return `${options}${footer}`;
+}
+
+function scheduleLiveRxTermsSearch(query, localCount) {
+  const search = normalizeSearch(query);
+  window.clearTimeout(liveRxTermsTimer);
+
+  if (search.length < 2 || localCount >= 3) {
+    state.liveSuggestionStatus = "idle";
+    return;
+  }
+
+  if (liveRxTermsCache.has(search)) {
+    state.liveSuggestions = liveRxTermsCache.get(search);
+    state.liveSuggestionStatus = "loaded";
+    return;
+  }
+
+  const requestId = ++liveRxTermsRequestId;
+  state.liveSuggestionStatus = "loading";
+  liveRxTermsTimer = window.setTimeout(async () => {
+    try {
+      const results = await fetchRxTermsSuggestions(search);
+      if (requestId !== liveRxTermsRequestId) {
+        return;
+      }
+      liveRxTermsCache.set(search, results);
+      state.liveSuggestions = results;
+      state.liveSuggestionStatus = "loaded";
+      refreshOpenSuggestions(search);
+    } catch (error) {
+      console.warn(error);
+      if (requestId === liveRxTermsRequestId) {
+        state.liveSuggestionStatus = "error";
+        refreshOpenSuggestions(search);
+      }
+    }
+  }, 350);
+}
+
+function refreshOpenSuggestions(query) {
+  const input = document.querySelector("#name");
+  if (!input || normalizeSearch(input.value) !== normalizeSearch(query)) {
+    return;
+  }
+
+  const localSuggestions = getMedicationSuggestions(input.value);
+  state.formSuggestions = mergeMedicationEntries(localSuggestions, state.liveSuggestions).slice(0, 8);
+  const list = document.querySelector("#name-suggestions");
+  if (list && !list.hidden) {
+    list.innerHTML = renderSuggestionList(state.formSuggestions);
+  }
+}
+
+function handleAutocompleteKeys(event) {
+  const list = document.querySelector("#name-suggestions");
+  if (!list || list.hidden) {
+    return;
+  }
+
+  if (event.key === "Escape") {
+    closeMedicationSuggestions();
+    return;
+  }
+
+  if (!["ArrowDown", "ArrowUp", "Enter"].includes(event.key)) {
+    return;
+  }
+
+  event.preventDefault();
+
+  if (event.key === "Enter") {
+    const selected = state.formSuggestions[state.activeSuggestionIndex] || state.formSuggestions[0];
+    if (selected) {
+      selectMedicationSuggestion(selected.name);
+    }
+    return;
+  }
+
+  const direction = event.key === "ArrowDown" ? 1 : -1;
+  const max = state.formSuggestions.length - 1;
+  const nextIndex =
+    state.activeSuggestionIndex < 0 ? (direction > 0 ? 0 : max) : Math.min(max, Math.max(0, state.activeSuggestionIndex + direction));
+  highlightMedicationSuggestion(nextIndex);
+}
+
+function highlightMedicationSuggestion(index) {
+  state.activeSuggestionIndex = index;
+  const input = document.querySelector("#name");
+  document.querySelectorAll(".autocomplete-option").forEach((option, optionIndex) => {
+    const isActive = optionIndex === index;
+    option.classList.toggle("active", isActive);
+    option.setAttribute("aria-selected", String(isActive));
+    if (isActive && input) {
+      input.setAttribute("aria-activedescendant", option.id);
+    }
+  });
+}
+
+function selectMedicationSuggestion(name) {
+  const record = findMedicationRecordByName(name);
+  const form = document.querySelector("#medication-form");
+  if (!record || !form) {
+    return;
+  }
+
+  form.dataset.selectedMedication = record.name;
+  setFieldValue("name", record.name);
+  setFieldValue("genericName", record.genericName || record.name);
+  setFieldValue("category", normalizeCategory(record.category));
+  setFieldValue("purpose", record.commonUses?.[0] ? commonUseValue(record.commonUses[0]) : "");
+  setFieldValue("foodInstructions", record.foodInstructions || "");
+
+  if (record.foodInstructions) {
+    const intake = intakeFromFoodInstructions(record.foodInstructions);
+    const intakeInput = form.querySelector(`input[name="intake"][value="${intake}"]`);
+    if (intakeInput) {
+      intakeInput.checked = true;
+    }
+  }
+
+  updateMedicationHelperPanels(record);
+  closeMedicationSuggestions();
+}
+
+function applySmartValue(fieldId, value) {
+  setFieldValue(fieldId, value);
+}
+
+function applyCommonUseValue(value) {
+  const field = document.querySelector("#purpose");
+  const nextValue = commonUseValue(value);
+  if (!field || !nextValue) {
+    return;
+  }
+
+  const current = cleanText(field.value);
+  const normalizedCurrent = normalizeSearch(current);
+  if (!current) {
+    setFieldValue("purpose", nextValue);
+    updateSelectedUseChips();
+    return;
+  }
+
+  if (parseCommonUses(current).map(normalizeSearch).includes(normalizeSearch(nextValue))) {
+    field.focus();
+    return;
+  }
+
+  setFieldValue("purpose", `${current}, ${nextValue}`);
+  updateSelectedUseChips();
+  field.focus();
+}
+
+function removeCommonUseValue(value) {
+  const field = document.querySelector("#purpose");
+  if (!field) {
+    return;
+  }
+
+  const removeValue = normalizeSearch(value);
+  const nextUses = parseCommonUses(field.value).filter((use) => normalizeSearch(use) !== removeValue);
+  setFieldValue("purpose", nextUses.join(", "));
+  updateSelectedUseChips();
+  field.focus();
+}
+
+function setFieldValue(fieldId, value) {
+  const field = document.querySelector(`#${fieldId}`);
+  if (!field || value === undefined) {
+    return;
+  }
+  field.value = value;
+  field.dispatchEvent(new Event("change", { bubbles: true }));
+}
+
+function updateMedicationHelperPanels(record) {
+  updateInlineSuggestionPanel("#dosage-suggestions", record?.strengthsAndForms?.length ? renderDosageSuggestions(record) : "");
+  updateInlineSuggestionPanel("#use-suggestions", record?.commonUses?.length ? renderUseSuggestions(record) : "");
+  updateSelectedUseChips();
+}
+
+function updateInlineSuggestionPanel(selector, content) {
+  const panel = document.querySelector(selector);
+  if (!panel) {
+    return;
+  }
+
+  if (!content) {
+    panel.hidden = true;
+    panel.innerHTML = "";
+    return;
+  }
+
+  panel.hidden = false;
+  panel.innerHTML = content;
+}
+
+function updateSelectedUseChips() {
+  const field = document.querySelector("#purpose");
+  const container = document.querySelector("#selected-use-chips");
+  if (!field || !container) {
+    return;
+  }
+  container.innerHTML = renderSelectedUseChips(field.value);
+}
+
+function hydrateSmartFillForCurrentForm() {
+  const nameInput = document.querySelector("#name");
+  if (!nameInput) {
+    return;
+  }
+  const record = findMedicationRecordByName(nameInput.value);
+  if (record) {
+    updateMedicationHelperPanels(record);
+  }
+}
+
+function renderReminders() {
+  const reminders = getTodayDoses().filter((dose) => dose.med.reminder?.enabled);
+  return `
+    <section class="page">
+      <div class="page-header">
+        <div>
+          <p class="eyebrow">In-app reminders</p>
+          <h2 class="page-title">Reminder cards</h2>
+        </div>
+        <button class="button primary" type="button" data-action="add-medication">Add medication</button>
+      </div>
+      <div class="notice">
+        <strong>Notification status</strong>
+        <span>These are reminder-style cards inside the app. Browser or phone notifications are not turned on.</span>
+      </div>
+      ${
+        reminders.length
+          ? `<div class="reminder-list">${reminders.map(renderReminderCard).join("")}</div>`
+          : renderEmptyState("No reminder cards yet", "Turn on reminders while adding or editing a medication.", "Add medication")
+      }
+    </section>
+  `;
+}
+
+function renderReminderCard(dose) {
+  const lead = Number(dose.med.reminder?.leadMinutes) || 15;
+  const reminderMinutes = Math.max(0, dose.sortMinutes - lead);
+  return `
+    <article class="card">
+      <div class="med-card-footer">
+        <div>
+          <h3>${escapeHtml(dose.med.name)}</h3>
+          <p class="subtle">Reminder at ${escapeHtml(formatMinutes(reminderMinutes))} for the ${escapeHtml(formatClock(dose.time))} dose.</p>
+        </div>
+        <span class="chip ${escapeHtml(dose.med.category)}">${escapeHtml(categories[dose.med.category] || dose.med.category)}</span>
+      </div>
+    </article>
+  `;
+}
+
+function renderReminderSummary() {
+  const reminders = getTodayDoses().filter((dose) => dose.med.reminder?.enabled).slice(0, 3);
+  return `
+    <div class="card">
+      <div class="med-card-footer">
+        <h3 class="section-title">Reminders</h3>
+        <button class="button text" type="button" data-action="navigate" data-view="reminders">Open</button>
+      </div>
+      ${
+        reminders.length
+          ? `<div class="reminder-list" style="margin-top: 12px;">${reminders.map(renderReminderSummaryItem).join("")}</div>`
+          : `<p class="subtle">No in-app reminder cards are turned on yet.</p>`
+      }
+    </div>
+  `;
+}
+
+function renderReminderSummaryItem(dose) {
+  const lead = Number(dose.med.reminder?.leadMinutes) || 15;
+  return `
+    <button class="detail-item" type="button" data-action="view-medication" data-id="${escapeHtml(dose.med.id)}">
+      <span>${escapeHtml(formatClock(dose.time))} dose</span>
+      <strong>${escapeHtml(dose.med.name)} - ${lead} min before</strong>
+    </button>
+  `;
+}
+
+function renderNotesSummary() {
+  const noted = state.meds.filter((med) => med.notes).slice(0, 3);
+  return `
+    <div class="card">
+      <h3 class="section-title">Recent notes</h3>
+      ${
+        noted.length
+          ? `<div class="reminder-list" style="margin-top: 12px;">
+              ${noted
+                .map(
+                  (med) => `
+                    <button class="detail-item" type="button" data-action="view-medication" data-id="${escapeHtml(med.id)}">
+                      <span>${escapeHtml(med.name)}</span>
+                      <strong>${escapeHtml(med.notes)}</strong>
+                    </button>
+                  `,
+                )
+                .join("")}
+            </div>`
+          : `<p class="subtle">Medication notes will show up here after you add them.</p>`
+      }
+    </div>
+  `;
+}
+
+function renderEmptyState(title, body, buttonText) {
+  return `
+    <div class="empty-state">
+      <h3>${escapeHtml(title)}</h3>
+      <p class="subtle">${escapeHtml(body)}</p>
+      <button class="button primary" type="button" data-action="add-medication">${escapeHtml(buttonText)}</button>
+    </div>
+  `;
+}
+
+function getMedication(id) {
+  return state.meds.find((med) => med.id === id);
+}
+
+function getTodayDoses() {
+  return state.meds
+    .flatMap((med) =>
+      normalizedSchedule(med).map((slot) => {
+        const key = doseKey(med.id, slot.id);
+        const savedStatus = state.statuses[key]?.status;
+        const autoMissed = !savedStatus && minutesFromTime(slot.time) + 30 < currentMinutes();
+        return {
+          key,
+          med,
+          label: slot.label,
+          time: slot.time,
+          sortMinutes: minutesFromTime(slot.time),
+          status: savedStatus || (autoMissed ? "auto-missed" : "due"),
+        };
+      }),
+    )
+    .sort((a, b) => a.sortMinutes - b.sortMinutes || a.med.name.localeCompare(b.med.name));
+}
+
+function normalizedSchedule(med) {
+  if (Array.isArray(med?.schedule) && med.schedule.length) {
+    return med.schedule
+      .map((slot) => ({
+        id: slot.id || slug(slot.label || slot.time || "dose"),
+        label: slot.label || titleCase(slot.id || "Dose"),
+        time: slot.time || slotDefinitions.find((entry) => entry.id === slot.id)?.time || "09:00",
+      }))
+      .sort((a, b) => minutesFromTime(a.time) - minutesFromTime(b.time));
+  }
+
+  return [{ id: "morning", label: "Morning", time: "08:00" }];
+}
+
+function getMedicationSuggestions(query) {
+  const search = normalizeSearch(query);
+  if (!search || search.length < 1) {
+    return [];
+  }
+
+  return state.medicationDatabase
+    .filter((record) => {
+      const haystack = medicationSearchText(record);
+      return haystack.includes(search);
+    })
+    .sort((a, b) => {
+      return medicationSearchRank(a, search) - medicationSearchRank(b, search) || a.name.localeCompare(b.name);
+    })
+    .slice(0, 7);
+}
+
+function findMedicationRecordByName(name) {
+  const search = normalizeSearch(name);
+  if (!search) {
+    return null;
+  }
+  return (
+    mergeMedicationEntries(state.medicationDatabase, state.liveSuggestions).find((record) => normalizeSearch(record.name) === search) || null
+  );
+}
+
+function medicationSearchText(record) {
+  return normalizeSearch(
+    [
+      record.name,
+      record.genericName,
+      ...(record.brandNames || []),
+      ...(record.strengthsAndForms || []),
+      ...(record.commonUses || []),
+    ].join(" "),
+  );
+}
+
+function medicationSearchRank(record, search) {
+  const fields = [
+    record.name,
+    record.genericName,
+    ...(record.brandNames || []),
+    ...(record.strengthsAndForms || []),
+  ].map(normalizeSearch);
+
+  if (fields.some((field) => field === search)) {
+    return 0;
+  }
+  if (fields.some((field) => field.startsWith(search))) {
+    return 1;
+  }
+  if (fields.some((field) => field.includes(search))) {
+    return 2;
+  }
+  return 3;
+}
+
+function normalizeSearch(value) {
+  return cleanText(value).toLowerCase();
+}
+
+function intakeFromFoodInstructions(instructions) {
+  const value = normalizeSearch(instructions);
+  if (/empty stomach|before a meal|before meal/.test(value)) {
+    return "empty";
+  }
+  if (/with food|with meals|with meal|milk|stomach upset/.test(value)) {
+    return "food";
+  }
+  if (/water/.test(value)) {
+    return "water";
+  }
+  return "water";
+}
+
+function commonUseValue(value) {
+  return cleanText(value)
+    .replace(/^for\s+/i, "")
+    .replace(/\s+/g, " ");
+}
+
+function commonUseLabel(value) {
+  return titleCase(commonUseValue(value));
+}
+
+function parseCommonUses(value) {
+  const seen = new Set();
+  return String(value || "")
+    .split(",")
+    .map(cleanText)
+    .filter(Boolean)
+    .filter((use) => {
+      const key = normalizeSearch(use);
+      if (seen.has(key)) {
+        return false;
+      }
+      seen.add(key);
+      return true;
+    });
+}
+
+function scheduleMapForForm(med) {
+  const schedule = {};
+  slotDefinitions.forEach((slot) => {
+    schedule[slot.id] = { checked: !med && slot.id === "morning", time: slot.time };
+  });
+  if (med) {
+    normalizedSchedule(med).forEach((slot) => {
+      if (schedule[slot.id]) {
+        schedule[slot.id] = { checked: true, time: slot.time };
+      }
+    });
+  }
+  return schedule;
+}
+
+function doseKey(medId, slotId) {
+  return `${slug(medId)}_${slug(slotId)}`;
+}
+
+function todayKey() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function fullDateLabel() {
+  return new Intl.DateTimeFormat(undefined, {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+  }).format(new Date());
+}
+
+function minutesFromTime(time = "00:00") {
+  const [hours, minutes] = String(time).split(":").map(Number);
+  return (Number.isFinite(hours) ? hours : 0) * 60 + (Number.isFinite(minutes) ? minutes : 0);
+}
+
+function currentMinutes() {
+  const now = new Date();
+  return now.getHours() * 60 + now.getMinutes();
+}
+
+function formatClock(time) {
+  return formatMinutes(minutesFromTime(time));
+}
+
+function formatMinutes(totalMinutes) {
+  const minutes = ((totalMinutes % 1440) + 1440) % 1440;
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  return new Intl.DateTimeFormat(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date(2024, 0, 1, hours, mins));
+}
+
+function statusLabel(status) {
+  if (status === "auto-missed") {
+    return "Past due";
+  }
+  if (status === "due") {
+    return "Due";
+  }
+  return titleCase(status);
+}
+
+function titleCase(value) {
+  return String(value || "")
+    .replace(/-/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function initialsForUser(user) {
+  const source = user.displayName || user.email || "M";
+  return source
+    .split(/\s|@/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0].toUpperCase())
+    .join("");
+}
+
+function cleanText(value) {
+  return String(value || "").trim();
+}
+
+function slug(value) {
+  return String(value || "dose").replace(/[^a-z0-9_-]/gi, "_");
+}
+
+function messageFromError(error) {
+  if (!error) {
+    return "Something went wrong.";
+  }
+
+  if (error.code === "permission-denied" || /missing or insufficient permissions/i.test(error.message || "")) {
+    return "Firebase denied this save. Publish the Firestore rules in firestore.rules so signed-in users can read and write their own medications.";
+  }
+
+  const message = error.message || String(error);
+  return message.replace(/^Firebase:\s*/i, "").replace(/\s*\([^)]*\)\.?$/, ".");
+}
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function escapeAttribute(value) {
+  return escapeHtml(value).replace(/`/g, "&#096;");
+}

@@ -1,0 +1,9 @@
+node_modules/
+apps/desktop/node_modules/
+apps/desktop/release/
+apps/desktop/dist/
+apps/desktop/renderer/
+apps/desktop/.user-data/
+apps/ios/MedOrganizer.xcodeproj/
+apps/ios/MedOrganizer/MedOrganizer/GoogleService-Info.plist
+.DS_Store
