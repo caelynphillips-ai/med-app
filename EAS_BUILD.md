@@ -20,9 +20,18 @@ npm run eas:build:android
 
 ## Expo Website Builds
 
+Before the first website build, link this repo to an Expo/EAS project:
+
+```bash
+npx eas-cli@latest login
+npx eas-cli@latest init
+```
+
+The `init` command adds the Expo project ID to `app.json` under `extra.eas.projectId`. Commit and push that small `app.json` change so non-interactive builds from GitHub can find the EAS project.
+
+Then:
+
 1. Open the Expo dashboard.
 2. Connect the GitHub repository `caelynphillips-ai/med-app`.
 3. Select this repository root as the project directory.
 4. Choose the `preview` profile for internal testing, or `production` for store-ready builds.
-
-If Expo asks to link the project, run `npx eas-cli@latest init` once from the repository root while signed into the correct Expo account. That will add the Expo project ID to `app.json`.
