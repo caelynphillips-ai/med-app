@@ -22,7 +22,7 @@
     },
     "web": {
       "bundler": "metro",
-      "output": "static"
+      "output": "single"
     },
     "extra": {
       "firebaseProjectId": "med-test-7a252",
