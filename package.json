@@ -4,11 +4,26 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "expo:web": "expo start --web",
+    "eas:build": "npx eas-cli@latest build",
+    "eas:build:ios": "npx eas-cli@latest build --platform ios",
+    "eas:build:android": "npx eas-cli@latest build --platform android",
     "web": "node scripts/serve-web.mjs",
     "desktop:sync": "node apps/desktop/scripts/sync-renderer.mjs",
     "desktop": "npm --prefix apps/desktop start",
     "desktop:build": "npm --prefix apps/desktop run build",
     "desktop:dist": "npm --prefix apps/desktop run dist",
     "rxterms:import": "node scripts/import-rxterms.mjs"
+  },
+  "dependencies": {
+    "@expo/metro-runtime": "~55.0.11",
+    "expo": "^55.0.25",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "react-native": "0.83.6",
+    "react-native-web": "^0.21.0"
   }
 }

@@ -1,0 +1,32 @@
+{
+  "expo": {
+    "name": "Med Organizer",
+    "slug": "med-organizer",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "medorganizer",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.caelynphillips.medorganizer",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Med Organizer can use the camera if your team adds medication label capture later.",
+        "NSPhotoLibraryUsageDescription": "Med Organizer can use photos if your team adds medication label uploads later."
+      }
+    },
+    "android": {
+      "package": "com.caelynphillips.medorganizer",
+      "adaptiveIcon": {
+        "backgroundColor": "#EAF7F6"
+      }
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static"
+    },
+    "extra": {
+      "firebaseProjectId": "med-test-7a252",
+      "githubRepository": "caelynphillips-ai/med-app"
+    }
+  }
+}
