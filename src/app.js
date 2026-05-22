@@ -1,121 +1,32 @@
 import {
-  GoogleAuthProvider,
-  getAuth,
-  onAuthStateChanged,
-  signInWithPopup,
-  signOut,
-} from "https://www.gstatic.com/firebasejs/10.12.4/firebase-auth.js";
-import {
-  addDoc,
-  collection,
-  deleteDoc,
-  deleteField,
-  doc,
-  getDoc,
-  getDocs,
-  getFirestore,
-  limit,
-  onSnapshot,
-  orderBy,
-  query,
-  serverTimestamp,
-  setDoc,
-  updateDoc,
-  writeBatch,
-} from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
-import {
-  deleteObject,
-  getDownloadURL,
-  getStorage,
-  ref,
-  uploadBytes,
-} from "https://www.gstatic.com/firebasejs/10.12.4/firebase-storage.js";
-import { app as firebaseApp } from "../firebaseConfig.js";
-import {
   fetchRxTermsSuggestions,
   mergeMedicationEntries,
   normalizeCategory,
-  normalizeMedicationEntry,
 } from "./rxterms.js";
+import { categories, CLIENT_NAME, intakeLabels, MEDICATION_SCHEMA_VERSION, slotDefinitions } from "./config/constants.js";
+import { sampleMedications } from "./data/sampleMedications.js";
+import { observeAuthState, signInWithGoogle, signOutUser } from "./services/authService.js";
+import { subscribeToDoseStatusRecord, saveDoseStatusRecord } from "./services/doseStatusRepository.js";
+import {
+  clearMedicationAttachment,
+  deleteMedicationRecord,
+  saveMedicationRecord,
+  subscribeToMedicationRecords,
+  updateMedicationAttachment,
+} from "./services/medicationRepository.js";
+import { ensureSampleData } from "./services/sampleDataService.js";
+import { findMedicationRecordByName as findMedicationRecordInSources, getMedicationSuggestions as searchMedicationSuggestions, loadMedicationDatabase as fetchMedicationDatabase } from "./services/suggestionService.js";
+import { deleteAttachmentPath, uploadMedicationAttachment } from "./services/storageService.js";
+import { commonUseLabel, commonUseValue, parseCommonUses } from "./utils/commonUses.js";
 import { currentMinutes, formatClock, formatMinutes, fullDateLabel, minutesFromTime, todayKey } from "./utils/dateTime.js";
 import { messageFromError } from "./utils/errors.js";
-import { commonUseLabel, commonUseValue, intakeFromFoodInstructions, parseCommonUses } from "./utils/medicationFields.js";
-import { medicationSearchRank, medicationSearchText } from "./utils/medicationSearch.js";
-import { doseKey, normalizedSchedule, scheduleMapForForm, slotDefinitions, statusLabel } from "./utils/schedule.js";
+import { intakeFromFoodInstructions } from "./utils/medicationFields.js";
+import { doseKey, normalizedSchedule, scheduleMapForForm, statusLabel } from "./utils/schedule.js";
 import { cleanText, escapeAttribute, escapeHtml, initialsForUser, normalizeSearch, titleCase } from "./utils/text.js";
-
-const auth = getAuth(firebaseApp);
-const provider = new GoogleAuthProvider();
-const db = getFirestore(firebaseApp);
-const storage = getStorage(firebaseApp);
-const CLIENT_NAME =
-  new URLSearchParams(window.location.search).get("client") === "desktop" || window.medOrganizerDesktop?.client === "desktop"
-    ? "desktop"
-    : "web";
-const MEDICATION_SCHEMA_VERSION = 1;
-
 const root = document.querySelector("#app");
 const liveRxTermsCache = new Map();
 let liveRxTermsTimer = null;
 let liveRxTermsRequestId = 0;
-
-const categories = {
-  prescription: "Prescription",
-  "over-the-counter": "Over-the-counter",
-  vitamin: "Vitamin",
-  supplement: "Supplement",
-};
-
-const intakeLabels = {
-  food: "Take with food",
-  water: "Take with water",
-  empty: "Take on an empty stomach",
-};
-
-const sampleMedications = [
-  {
-    name: "Lisinopril",
-    category: "prescription",
-    purpose: "for blood pressure",
-    dosage: "10 mg",
-    timesPerDay: 1,
-    schedule: [{ id: "morning", label: "Morning", time: "08:00" }],
-    intake: "water",
-    foodInstructions: "May be taken with or without food. Take with water.",
-    notes: "Check blood pressure regularly. Refill before the last week of the month.",
-    reminder: { enabled: true, leadMinutes: 15 },
-    attachment: null,
-    isSample: true,
-  },
-  {
-    name: "Vitamin D3",
-    category: "vitamin",
-    purpose: "for low vitamin D",
-    dosage: "1 capsule",
-    timesPerDay: 1,
-    schedule: [{ id: "lunch", label: "Lunch", time: "12:30" }],
-    intake: "food",
-    foodInstructions: "Often taken with food. Follow the product label or clinician instructions.",
-    notes: "Keep near lunch items so it is easy to remember.",
-    reminder: { enabled: true, leadMinutes: 10 },
-    attachment: null,
-    isSample: true,
-  },
-  {
-    name: "Iron",
-    category: "supplement",
-    purpose: "for low iron",
-    dosage: "65 mg",
-    timesPerDay: 1,
-    schedule: [{ id: "evening", label: "Evening", time: "18:00" }],
-    intake: "empty",
-    foodInstructions: "Often taken on an empty stomach, but may be taken with food if stomach upset occurs.",
-    notes: "Avoid taking at the same time as calcium unless a clinician says otherwise.",
-    reminder: { enabled: false, leadMinutes: 15 },
-    attachment: null,
-    isSample: true,
-  },
-];
 
 const state = {
   user: null,
@@ -141,7 +52,7 @@ const state = {
 
 void loadMedicationDatabase();
 
-onAuthStateChanged(auth, async (user) => {
+observeAuthState(async (user) => {
   state.authReadyToken += 1;
   const token = state.authReadyToken;
   cleanupSubscriptions();
@@ -291,12 +202,7 @@ document.addEventListener("click", (event) => {
 
 async function loadMedicationDatabase() {
   try {
-    const response = await fetch("./src/medications.json");
-    if (!response.ok) {
-      throw new Error("Medication database could not be loaded.");
-    }
-    const medications = await response.json();
-    state.medicationDatabase = Array.isArray(medications) ? medications.map(normalizeMedicationEntry) : [];
+    state.medicationDatabase = await fetchMedicationDatabase();
     hydrateSmartFillForCurrentForm();
   } catch (error) {
     console.warn(error);
@@ -316,61 +222,11 @@ function cleanupSubscriptions() {
   }
 }
 
-async function ensureSampleData(user) {
-  const settingsRef = doc(db, "users", user.uid, "appMeta", "settings");
-  const settingsSnap = await getDoc(settingsRef);
-  const hasSeeded = settingsSnap.exists() && settingsSnap.data().sampleSeeded;
-  if (hasSeeded) {
-    return;
-  }
-
-  const existing = await getDocs(query(collection(db, "users", user.uid, "medications"), limit(1)));
-  if (!existing.empty) {
-    await setDoc(
-      settingsRef,
-      {
-        sampleSeeded: true,
-        sampleSeededAt: serverTimestamp(),
-      },
-      { merge: true },
-    );
-    return;
-  }
-
-  const batch = writeBatch(db);
-  sampleMedications.forEach((med) => {
-    const medRef = doc(collection(db, "users", user.uid, "medications"));
-    batch.set(medRef, {
-      ...med,
-      schemaVersion: MEDICATION_SCHEMA_VERSION,
-      ownerId: user.uid,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-      updatedBy: user.uid,
-      updatedFrom: CLIENT_NAME,
-    });
-  });
-  batch.set(
-    settingsRef,
-    {
-      sampleSeeded: true,
-      sampleSeededAt: serverTimestamp(),
-      displayName: user.displayName || "",
-    },
-    { merge: true },
-  );
-  await batch.commit();
-}
-
 function subscribeToMedications(uid) {
-  const medsQuery = query(collection(db, "users", uid, "medications"), orderBy("createdAt", "asc"));
-  state.unsubscribeMeds = onSnapshot(
-    medsQuery,
-    (snapshot) => {
-      state.meds = snapshot.docs.map((entry) => ({
-        id: entry.id,
-        ...entry.data(),
-      }));
+  state.unsubscribeMeds = subscribeToMedicationRecords(
+    uid,
+    (medications) => {
+      state.meds = medications;
       state.loadingMeds = false;
       render();
     },
@@ -383,11 +239,11 @@ function subscribeToMedications(uid) {
 }
 
 function subscribeToDoseStatus(uid) {
-  const statusRef = doc(db, "users", uid, "doseStatus", todayKey());
-  state.unsubscribeStatus = onSnapshot(
-    statusRef,
-    (snapshot) => {
-      state.statuses = snapshot.exists() ? snapshot.data().statuses || {} : {};
+  state.unsubscribeStatus = subscribeToDoseStatusRecord(
+    uid,
+    todayKey(),
+    (statuses) => {
+      state.statuses = statuses;
       render();
     },
     (error) => {
@@ -399,8 +255,7 @@ function subscribeToDoseStatus(uid) {
 async function handleSignIn() {
   setBusy(true);
   try {
-    provider.setCustomParameters({ prompt: "select_account" });
-    await signInWithPopup(auth, provider);
+    await signInWithGoogle();
   } catch (error) {
     showToast(messageFromError(error), "error");
   } finally {
@@ -411,7 +266,7 @@ async function handleSignIn() {
 async function handleSignOut() {
   setBusy(true);
   try {
-    await signOut(auth);
+    await signOutUser();
     setView("dashboard");
   } catch (error) {
     showToast(messageFromError(error), "error");
@@ -459,7 +314,6 @@ async function saveMedication(form) {
       leadMinutes: Number(formData.get("leadMinutes")) || 15,
     },
     ownerId: state.user.uid,
-    updatedAt: serverTimestamp(),
     updatedBy: state.user.uid,
     updatedFrom: CLIENT_NAME,
   };
@@ -472,26 +326,13 @@ async function saveMedication(form) {
   setBusy(true);
   try {
     let medId = state.selectedMedId;
-    let medRef;
-
-    if (medId) {
-      medRef = doc(db, "users", state.user.uid, "medications", medId);
-      await updateDoc(medRef, payload);
-    } else {
-      const newDoc = await addDoc(collection(db, "users", state.user.uid, "medications"), {
-        ...payload,
-        createdAt: serverTimestamp(),
-      });
-      medId = newDoc.id;
-      medRef = newDoc;
-    }
+    const saved = await saveMedicationRecord(state.user.uid, medId, payload);
+    medId = saved.medId;
 
     const file = form.querySelector('input[name="attachment"]').files[0];
     if (file) {
       const attachment = await uploadAttachment(medId, file);
-      await updateDoc(medRef, {
-        attachment,
-        updatedAt: serverTimestamp(),
+      await updateMedicationAttachment(state.user.uid, medId, attachment, {
         updatedBy: state.user.uid,
         updatedFrom: CLIENT_NAME,
       });
@@ -509,17 +350,7 @@ async function saveMedication(form) {
 }
 
 async function uploadAttachment(medId, file) {
-  const safeName = file.name.replace(/[^a-z0-9._-]/gi, "_");
-  const fileRef = ref(storage, `users/${state.user.uid}/medications/${medId}/${Date.now()}-${safeName}`);
-  await uploadBytes(fileRef, file, { contentType: file.type || "application/octet-stream" });
-  const url = await getDownloadURL(fileRef);
-  return {
-    name: file.name,
-    path: fileRef.fullPath,
-    url,
-    contentType: file.type || "application/octet-stream",
-    uploadedAt: new Date().toISOString(),
-  };
+  return uploadMedicationAttachment(state.user.uid, medId, file);
 }
 
 async function removeAttachment(medId) {
@@ -530,11 +361,8 @@ async function removeAttachment(medId) {
 
   setBusy(true);
   try {
-    await deleteObject(ref(storage, med.attachment.path)).catch(() => {});
-    await updateDoc(doc(db, "users", state.user.uid, "medications", medId), {
-      attachment: deleteField(),
-      updatedAt: serverTimestamp(),
-    });
+    await deleteAttachmentPath(med.attachment.path).catch(() => {});
+    await clearMedicationAttachment(state.user.uid, medId);
     showToast("Attachment removed.");
   } catch (error) {
     showToast(messageFromError(error), "error");
@@ -557,9 +385,9 @@ async function deleteMedication(medId) {
   setBusy(true);
   try {
     if (med.attachment?.path) {
-      await deleteObject(ref(storage, med.attachment.path)).catch(() => {});
+      await deleteAttachmentPath(med.attachment.path).catch(() => {});
     }
-    await deleteDoc(doc(db, "users", state.user.uid, "medications", medId));
+    await deleteMedicationRecord(state.user.uid, medId);
     state.selectedMedId = null;
     state.editMode = false;
     setView("medications");
@@ -577,26 +405,9 @@ async function markDose(doseKey, status) {
     return;
   }
 
-  const statusRef = doc(db, "users", state.user.uid, "doseStatus", todayKey());
   setBusy(true);
   try {
-    await setDoc(
-      statusRef,
-      {
-        statuses: {
-          [doseKey]: {
-            status,
-            updatedAt: new Date().toISOString(),
-            updatedBy: state.user.uid,
-            updatedFrom: CLIENT_NAME,
-          },
-        },
-        updatedAt: serverTimestamp(),
-        updatedBy: state.user.uid,
-        updatedFrom: CLIENT_NAME,
-      },
-      { merge: true },
-    );
+    await saveDoseStatusRecord(state.user.uid, todayKey(), doseKey, status, CLIENT_NAME);
   } catch (error) {
     showToast(messageFromError(error), "error");
   } finally {
@@ -1664,28 +1475,9 @@ function getTodayDoses() {
 }
 
 function getMedicationSuggestions(query) {
-  const search = normalizeSearch(query);
-  if (!search || search.length < 1) {
-    return [];
-  }
-
-  return state.medicationDatabase
-    .filter((record) => {
-      const haystack = medicationSearchText(record);
-      return haystack.includes(search);
-    })
-    .sort((a, b) => {
-      return medicationSearchRank(a, search) - medicationSearchRank(b, search) || a.name.localeCompare(b.name);
-    })
-    .slice(0, 7);
+  return searchMedicationSuggestions(state.medicationDatabase, query);
 }
 
 function findMedicationRecordByName(name) {
-  const search = normalizeSearch(name);
-  if (!search) {
-    return null;
-  }
-  return (
-    mergeMedicationEntries(state.medicationDatabase, state.liveSuggestions).find((record) => normalizeSearch(record.name) === search) || null
-  );
+  return findMedicationRecordInSources(name, state.medicationDatabase, state.liveSuggestions);
 }
