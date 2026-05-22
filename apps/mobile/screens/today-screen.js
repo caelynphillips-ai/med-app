@@ -1,25 +1,23 @@
 import React from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { fullDateLabel, formatClock } from "../../../shared/dateTime.js";
-import { AppHeader } from "../components/app-header.js";
 import { DisclaimerCard } from "../components/disclaimer-card.js";
 import { DoseCard } from "../components/dose-card.js";
 import { SummaryCard } from "../components/summary-card.js";
 import { useTodayDoses } from "../hooks/use-today-doses.js";
 import { colors, spacing, typography } from "../theme/tokens.js";
 
-export function TodayScreen() {
-  const { doses, medications, summary, markDose } = useTodayDoses();
-  const reminderCards = medications.filter((medication) => medication.reminder?.enabled);
+export function TodayScreen({ medications, statuses, onMarkDose, useSampleFallback }) {
+  const { doses, medications: visibleMedications, summary, markDose } = useTodayDoses({
+    medications,
+    statuses,
+    onMarkDose,
+    useSampleFallback,
+  });
+  const reminderCards = visibleMedications.filter((medication) => medication.reminder?.enabled);
 
   return (
-    <ScrollView
-      style={styles.screen}
-      contentContainerStyle={styles.content}
-      contentInsetAdjustmentBehavior="automatic"
-    >
-      <AppHeader />
-
+    <View style={styles.screen}>
       <View style={styles.titleBlock}>
         <Text selectable style={styles.eyebrow}>
           {fullDateLabel().toUpperCase()}
@@ -58,16 +56,11 @@ export function TodayScreen() {
       </View>
 
       <DisclaimerCard />
-    </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  content: {
-    gap: spacing.lg,
-    padding: spacing.xl,
-    paddingBottom: spacing.xl * 2,
-  },
   eyebrow: {
     color: colors.primary,
     fontSize: typography.label,
@@ -94,8 +87,7 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   screen: {
-    backgroundColor: colors.background,
-    flex: 1,
+    gap: spacing.lg,
   },
   section: {
     gap: spacing.md,

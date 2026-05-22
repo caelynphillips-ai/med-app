@@ -31,6 +31,9 @@
         "projectId": "0068d222-a2af-437b-8f51-99a36e73074a"
       }
     },
-    "owner": "caelynphillips.ux"
+    "owner": "caelynphillips.ux",
+    "plugins": [
+      "expo-web-browser"
+    ]
   }
 }

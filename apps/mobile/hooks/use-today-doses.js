@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { sampleMedications } from "../../../src/data/sampleMedications.js";
+import { sampleMedications } from "../../../shared/sampleMedications.js";
 import { buildTodayDoses } from "../../../shared/doseStatus.js";
 import { currentMinutes } from "../../../shared/dateTime.js";
 
@@ -8,10 +8,12 @@ const sampleMobileMedications = sampleMedications.map((medication, index) => ({
   id: `sample-${index + 1}`,
 }));
 
-export function useTodayDoses() {
-  const [statuses, setStatuses] = useState({});
+export function useTodayDoses({ medications, statuses, onMarkDose, useSampleFallback = false } = {}) {
+  const [localStatuses, setLocalStatuses] = useState({});
+  const sourceMedications = useSampleFallback && !medications?.length ? sampleMobileMedications : medications || [];
+  const sourceStatuses = statuses || localStatuses;
 
-  const doses = useMemo(() => buildTodayDoses(sampleMobileMedications, statuses, currentMinutes()), [statuses]);
+  const doses = useMemo(() => buildTodayDoses(sourceMedications, sourceStatuses, currentMinutes()), [sourceMedications, sourceStatuses]);
 
   const summary = useMemo(() => {
     const markedTaken = doses.filter((dose) => dose.status === "taken").length;
@@ -24,19 +26,23 @@ export function useTodayDoses() {
   }, [doses]);
 
   function markDose(doseKey, status) {
-    setStatuses((current) => ({
+    if (onMarkDose) {
+      void onMarkDose(doseKey, status);
+      return;
+    }
+    setLocalStatuses((current) => ({
       ...current,
       [doseKey]: {
         status,
         updatedAt: new Date().toISOString(),
-        updatedFrom: "mobile-local-preview",
+        updatedFrom: "ios",
       },
     }));
   }
 
   return {
     doses,
-    medications: sampleMobileMedications,
+    medications: sourceMedications,
     summary,
     markDose,
   };

@@ -16,6 +16,6 @@ This app is for personal organization only and does not provide medical advice. 
 
 ## Source Data
 
-Medication suggestions are local-first. The web and desktop app use `src/medications.json`; the iOS app bundles the same data in `apps/ios/MedOrganizer/MedOrganizer/Resources/medications.json`.
+Medication suggestions are local-first. Shared cross-platform data lives in `shared/medication-data/medications.json`; the web app still serves its browser copy from `src/medications.json` until the next web data-loading cleanup.
 
 The data shape allows RxTerms today and can later be expanded with RxNorm, DailyMed, openFDA, or a private formulary file.
