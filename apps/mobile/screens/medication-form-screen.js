@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Pressable, StyleSheet, Switch, Text, TextInput, View } from "react-native";
+import { Keyboard, Pressable, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import {
   categoryLabels,
   defaultScheduleSlots,
@@ -29,46 +29,77 @@ export function MedicationFormScreen({ medication, onNavigate, onSave }) {
   const [schedule, setSchedule] = useState(() => scheduleFromMedication(medication));
   const [localSuggestions, setLocalSuggestions] = useState([]);
   const [liveSuggestions, setLiveSuggestions] = useState([]);
+  const [suggestionsOpen, setSuggestionsOpen] = useState(false);
   const [selectedSuggestion, setSelectedSuggestion] = useState(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  const suggestions = useMemo(() => mergeSuggestions(localSuggestions, liveSuggestions).slice(0, 8), [localSuggestions, liveSuggestions]);
+  const suggestions = useMemo(
+    () => (suggestionsOpen ? mergeSuggestions(localSuggestions, liveSuggestions).slice(0, 8) : []),
+    [liveSuggestions, localSuggestions, suggestionsOpen],
+  );
   const dosageOptions = selectedSuggestion?.strengthsAndForms || [];
   const commonUseOptions = selectedSuggestion?.commonUses || [];
   const selectedUses = parseCommonUses(form.purpose);
 
   useEffect(() => {
     const query = form.name.trim();
+    if (!suggestionsOpen) {
+      return undefined;
+    }
+    if (!query) {
+      setLocalSuggestions([]);
+      setLiveSuggestions([]);
+      setSelectedSuggestion(null);
+      return undefined;
+    }
+
     const local = searchLocalMedicationSuggestions(query);
     setLocalSuggestions(local);
     const exact = findSelectedMedication(query, []);
     if (exact) {
       setSelectedSuggestion(exact);
+    } else {
+      setSelectedSuggestion(null);
     }
 
     if (query.length < 2 || local.length >= 3) {
+      setLiveSuggestions([]);
       return undefined;
     }
 
+    let cancelled = false;
     const timer = setTimeout(async () => {
       try {
         const live = await searchLiveMedicationSuggestions(query);
+        if (cancelled) {
+          return;
+        }
         setLiveSuggestions(live);
         const liveExact = findSelectedMedication(query, live);
         if (liveExact) {
           setSelectedSuggestion(liveExact);
         }
       } catch {
-        setLiveSuggestions([]);
+        if (!cancelled) {
+          setLiveSuggestions([]);
+        }
       }
     }, 350);
 
-    return () => clearTimeout(timer);
-  }, [form.name]);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [form.name, suggestionsOpen]);
 
   function updateField(field, value) {
     setForm((current) => ({ ...current, [field]: value }));
+  }
+
+  function updateName(value) {
+    setSuggestionsOpen(true);
+    updateField("name", value);
   }
 
   function selectSuggestion(record) {
@@ -84,6 +115,8 @@ export function MedicationFormScreen({ medication, onNavigate, onSave }) {
     }));
     setLocalSuggestions([]);
     setLiveSuggestions([]);
+    setSuggestionsOpen(false);
+    Keyboard.dismiss();
   }
 
   function addCommonUse(value) {
@@ -200,7 +233,12 @@ export function MedicationFormScreen({ medication, onNavigate, onSave }) {
         <Field label="Name">
           <TextInput
             autoCapitalize="words"
-            onChangeText={(value) => updateField("name", value)}
+            onChangeText={updateName}
+            onFocus={() => {
+              if (form.name.trim()) {
+                setSuggestionsOpen(true);
+              }
+            }}
             placeholder="Start typing a medication name"
             placeholderTextColor={colors.mutedText}
             style={styles.input}

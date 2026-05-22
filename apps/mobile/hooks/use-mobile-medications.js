@@ -10,6 +10,7 @@ import {
   saveMedicationRecord,
   subscribeToMedicationRecords,
 } from "../services/medication-repository.js";
+import { describeMobileError, logMobileError } from "../services/mobile-error.js";
 import { ensureSampleData } from "../services/sample-data-service.js";
 import { deleteAttachmentPath } from "../services/storage-service.js";
 
@@ -58,15 +59,18 @@ export function useMobileMedications() {
             setLoadingMeds(false);
           },
           (err) => {
-            setError(messageFromError(err));
+            logMobileError("Medication subscription failed", err);
+            setError(describeMobileError(err, "Loading medications"));
             setLoadingMeds(false);
           },
         );
         unsubscribeStatuses = subscribeToDoseStatusRecord(user.uid, dateKey, setStatuses, (err) => {
-          setError(messageFromError(err));
+          logMobileError("Dose status subscription failed", err);
+          setError(describeMobileError(err, "Loading dose statuses"));
         });
       } catch (err) {
-        setError(messageFromError(err));
+        logMobileError("Firebase data connection failed", err);
+        setError(describeMobileError(err, "Connecting to Firebase"));
         setLoadingMeds(false);
       }
     }
@@ -90,7 +94,8 @@ export function useMobileMedications() {
     try {
       await signInWithGoogle();
     } catch (err) {
-      const message = messageFromError(err);
+      logMobileError("Google sign-in failed", err);
+      const message = describeMobileError(err, "Google sign-in");
       setError(message);
       Alert.alert("Google sign-in", message);
     } finally {
@@ -104,7 +109,10 @@ export function useMobileMedications() {
     try {
       await startFirebasePreviewSession();
     } catch (err) {
-      setError(messageFromError(err));
+      logMobileError("Preview mode sign-in failed", err);
+      const message = describeMobileError(err, "Preview mode");
+      setError(message);
+      Alert.alert("Preview mode", message);
     } finally {
       setBusy(false);
     }
@@ -114,6 +122,10 @@ export function useMobileMedications() {
     setBusy(true);
     try {
       await signOutUser();
+      setError("");
+    } catch (err) {
+      logMobileError("Sign out failed", err);
+      setError(describeMobileError(err, "Sign out"));
     } finally {
       setBusy(false);
     }
@@ -121,7 +133,7 @@ export function useMobileMedications() {
 
   async function saveMedication(medication, existingId = "") {
     if (!user) {
-      throw new Error("Sign in before saving medications.");
+      throw new Error("Use Preview mode before saving medications. Google sign-in is not configured on native Android yet.");
     }
 
     const medId = existingId || medication.id || "";
@@ -145,7 +157,16 @@ export function useMobileMedications() {
     if (medication.attachment) {
       payload.attachment = medication.attachment;
     }
-    return saveMedicationRecord(user.uid, medId, payload);
+    try {
+      const savedId = await saveMedicationRecord(user.uid, medId, payload);
+      setError("");
+      return savedId;
+    } catch (err) {
+      logMobileError("Medication save failed", err);
+      const message = describeMobileError(err, "Saving medication");
+      setError(message);
+      throw new Error(message);
+    }
   }
 
   async function deleteMedication(medId) {
@@ -160,7 +181,15 @@ export function useMobileMedications() {
         console.warn("Attachment delete failed before medication delete.", err);
       }
     }
-    await deleteMedicationRecord(user.uid, medId);
+    try {
+      await deleteMedicationRecord(user.uid, medId);
+      setError("");
+    } catch (err) {
+      logMobileError("Medication delete failed", err);
+      const message = describeMobileError(err, "Deleting medication");
+      setError(message);
+      throw new Error(message);
+    }
   }
 
   async function markDose(doseKey, status) {
@@ -175,7 +204,13 @@ export function useMobileMedications() {
       }));
       return;
     }
-    await saveDoseStatusRecord(user.uid, dateKey, doseKey, status);
+    try {
+      await saveDoseStatusRecord(user.uid, dateKey, doseKey, status);
+      setError("");
+    } catch (err) {
+      logMobileError("Dose status save failed", err);
+      setError(describeMobileError(err, "Saving dose status"));
+    }
   }
 
   return {
@@ -195,14 +230,4 @@ export function useMobileMedications() {
     statuses,
     user,
   };
-}
-
-function messageFromError(error) {
-  if (!error) {
-    return "Something went wrong.";
-  }
-  if (error.code === "permission-denied") {
-    return "Missing or insufficient permissions. Check that you are signed in and Firebase rules are deployed.";
-  }
-  return error.message || String(error);
 }

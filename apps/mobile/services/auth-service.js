@@ -9,7 +9,9 @@ export function observeAuthState(onChange) {
 export async function signInWithGoogle() {
   if (Platform.OS !== "web") {
     // TODO: Wire native Google auth here after iOS, Android, and Web OAuth client IDs are configured.
-    throw new Error("Native Google sign-in needs iOS and Android OAuth client IDs before it can be enabled.");
+    const error = new Error("Native Google sign-in is not configured yet.");
+    error.code = "auth/native-google-not-configured";
+    throw error;
   }
   googleProvider.setCustomParameters({ prompt: "select_account" });
   return signInWithPopup(auth, googleProvider);
