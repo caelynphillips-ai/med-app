@@ -1,4 +1,7 @@
 node_modules/
+.expo
+.expo/
+.expo/*
 apps/desktop/node_modules/
 apps/desktop/release/
 apps/desktop/dist/
