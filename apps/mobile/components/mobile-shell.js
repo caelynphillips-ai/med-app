@@ -6,12 +6,12 @@ import { colors, radius, spacing, typography } from "../theme/tokens.js";
 
 export function MobileShell({ activeRoute, children, error, onNavigate, user, onGoogleSignIn, onPreviewSignIn, onSignOut, busy }) {
   const isPreviewSession = Boolean(user?.isAnonymous);
-  const authTitle = user ? (isPreviewSession ? "Preview mode" : user.displayName || "Signed in") : "Mobile organizer";
+  const authTitle = user ? (isPreviewSession ? "Preview mode active" : user.displayName || "Signed in") : "Mobile organizer";
   const authSubtitle = user
     ? isPreviewSession
-      ? "Temporary Firebase session. It does not sync with your Google account."
+      ? "Temporary anonymous Firebase session. Medications save to this preview account."
       : user.email || "Firebase session active"
-    : "Sign in to sync with Firebase. Preview mode does not sync with your Google account.";
+    : "Use Preview mode for temporary saving, or Google on web.";
 
   return (
     <View style={styles.shell}>

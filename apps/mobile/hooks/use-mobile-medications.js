@@ -28,6 +28,9 @@ export function useMobileMedications() {
     return observeAuthState((nextUser) => {
       setUser(nextUser);
       setAuthReady(true);
+      if (nextUser?.isAnonymous) {
+        setError((current) => (current.includes("Native Google sign-in is not configured") ? "" : current));
+      }
       if (!nextUser) {
         setMedications([]);
         setStatuses({});
@@ -108,6 +111,7 @@ export function useMobileMedications() {
     setError("");
     try {
       await startFirebasePreviewSession();
+      setError("");
     } catch (err) {
       logMobileError("Preview mode sign-in failed", err);
       const message = describeMobileError(err, "Preview mode");
