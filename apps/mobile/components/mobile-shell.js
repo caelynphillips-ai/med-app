@@ -5,6 +5,14 @@ import { navItems } from "../navigation/routes.js";
 import { colors, radius, spacing, typography } from "../theme/tokens.js";
 
 export function MobileShell({ activeRoute, children, error, onNavigate, user, onGoogleSignIn, onPreviewSignIn, onSignOut, busy }) {
+  const isPreviewSession = Boolean(user?.isAnonymous);
+  const authTitle = user ? (isPreviewSession ? "Preview mode" : user.displayName || "Signed in") : "Mobile organizer";
+  const authSubtitle = user
+    ? isPreviewSession
+      ? "Temporary Firebase session. It does not sync with your Google account."
+      : user.email || "Firebase session active"
+    : "Sign in to sync with Firebase. Preview mode does not sync with your Google account.";
+
   return (
     <View style={styles.shell}>
       <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.content}>
@@ -13,10 +21,10 @@ export function MobileShell({ activeRoute, children, error, onNavigate, user, on
         <View style={styles.authRow}>
           <View style={styles.authText}>
             <Text selectable style={styles.authTitle}>
-              {user ? user.displayName || "Signed in" : "Mobile organizer"}
+              {authTitle}
             </Text>
             <Text selectable style={styles.authSubtitle}>
-              {user ? user.email || "Firebase session active" : "Sign in to sync with Firebase"}
+              {authSubtitle}
             </Text>
           </View>
           {user ? (
@@ -28,8 +36,14 @@ export function MobileShell({ activeRoute, children, error, onNavigate, user, on
               <Pressable accessibilityRole="button" onPress={onGoogleSignIn} disabled={busy} style={styles.authButton}>
                 <Text style={styles.authButtonText}>Google</Text>
               </Pressable>
-              <Pressable accessibilityRole="button" onPress={onPreviewSignIn} disabled={busy} style={styles.authButton}>
-                <Text style={styles.authButtonText}>Preview</Text>
+              <Pressable
+                accessibilityLabel="Start preview mode with a temporary Firebase account"
+                accessibilityRole="button"
+                onPress={onPreviewSignIn}
+                disabled={busy}
+                style={styles.authButton}
+              >
+                <Text style={styles.authButtonText}>Preview mode</Text>
               </Pressable>
             </View>
           )}
@@ -69,6 +83,7 @@ export function MobileShell({ activeRoute, children, error, onNavigate, user, on
 
 const styles = StyleSheet.create({
   authActions: {
+    flexWrap: "wrap",
     flexDirection: "row",
     gap: spacing.sm,
   },
@@ -90,6 +105,7 @@ const styles = StyleSheet.create({
     borderCurve: "continuous",
     borderRadius: radius.lg,
     flexDirection: "row",
+    flexWrap: "wrap",
     gap: spacing.md,
     justifyContent: "space-between",
     padding: spacing.lg,
@@ -101,6 +117,7 @@ const styles = StyleSheet.create({
   },
   authText: {
     flex: 1,
+    minWidth: 220,
   },
   authTitle: {
     color: colors.text,

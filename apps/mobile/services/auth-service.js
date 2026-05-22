@@ -8,7 +8,7 @@ export function observeAuthState(onChange) {
 
 export async function signInWithGoogle() {
   if (Platform.OS !== "web") {
-    // TODO: Add iOS and Android Google OAuth client IDs before enabling real native account sync.
+    // TODO: Wire native Google auth here after iOS, Android, and Web OAuth client IDs are configured.
     throw new Error("Native Google sign-in needs iOS and Android OAuth client IDs before it can be enabled.");
   }
   googleProvider.setCustomParameters({ prompt: "select_account" });
@@ -16,6 +16,7 @@ export async function signInWithGoogle() {
 }
 
 export async function startFirebasePreviewSession() {
+  // Temporary preview mode only. This creates an anonymous Firebase user and does not sync with a Google account.
   return signInAnonymously(auth);
 }
 
