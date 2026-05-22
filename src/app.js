@@ -37,6 +37,12 @@ import {
   normalizeCategory,
   normalizeMedicationEntry,
 } from "./rxterms.js";
+import { currentMinutes, formatClock, formatMinutes, fullDateLabel, minutesFromTime, todayKey } from "./utils/dateTime.js";
+import { messageFromError } from "./utils/errors.js";
+import { commonUseLabel, commonUseValue, intakeFromFoodInstructions, parseCommonUses } from "./utils/medicationFields.js";
+import { medicationSearchRank, medicationSearchText } from "./utils/medicationSearch.js";
+import { doseKey, normalizedSchedule, scheduleMapForForm, slotDefinitions, statusLabel } from "./utils/schedule.js";
+import { cleanText, escapeAttribute, escapeHtml, initialsForUser, normalizeSearch, titleCase } from "./utils/text.js";
 
 const auth = getAuth(firebaseApp);
 const provider = new GoogleAuthProvider();
@@ -52,13 +58,6 @@ const root = document.querySelector("#app");
 const liveRxTermsCache = new Map();
 let liveRxTermsTimer = null;
 let liveRxTermsRequestId = 0;
-
-const slotDefinitions = [
-  { id: "morning", label: "Morning", time: "08:00" },
-  { id: "lunch", label: "Lunch", time: "12:30" },
-  { id: "evening", label: "Evening", time: "18:00" },
-  { id: "bedtime", label: "Bedtime", time: "21:30" },
-];
 
 const categories = {
   prescription: "Prescription",
@@ -1664,20 +1663,6 @@ function getTodayDoses() {
     .sort((a, b) => a.sortMinutes - b.sortMinutes || a.med.name.localeCompare(b.med.name));
 }
 
-function normalizedSchedule(med) {
-  if (Array.isArray(med?.schedule) && med.schedule.length) {
-    return med.schedule
-      .map((slot) => ({
-        id: slot.id || slug(slot.label || slot.time || "dose"),
-        label: slot.label || titleCase(slot.id || "Dose"),
-        time: slot.time || slotDefinitions.find((entry) => entry.id === slot.id)?.time || "09:00",
-      }))
-      .sort((a, b) => minutesFromTime(a.time) - minutesFromTime(b.time));
-  }
-
-  return [{ id: "morning", label: "Morning", time: "08:00" }];
-}
-
 function getMedicationSuggestions(query) {
   const search = normalizeSearch(query);
   if (!search || search.length < 1) {
@@ -1703,199 +1688,4 @@ function findMedicationRecordByName(name) {
   return (
     mergeMedicationEntries(state.medicationDatabase, state.liveSuggestions).find((record) => normalizeSearch(record.name) === search) || null
   );
-}
-
-function medicationSearchText(record) {
-  return normalizeSearch(
-    [
-      record.name,
-      record.genericName,
-      ...(record.brandNames || []),
-      ...(record.strengthsAndForms || []),
-      ...(record.commonUses || []),
-    ].join(" "),
-  );
-}
-
-function medicationSearchRank(record, search) {
-  const fields = [
-    record.name,
-    record.genericName,
-    ...(record.brandNames || []),
-    ...(record.strengthsAndForms || []),
-  ].map(normalizeSearch);
-
-  if (fields.some((field) => field === search)) {
-    return 0;
-  }
-  if (fields.some((field) => field.startsWith(search))) {
-    return 1;
-  }
-  if (fields.some((field) => field.includes(search))) {
-    return 2;
-  }
-  return 3;
-}
-
-function normalizeSearch(value) {
-  return cleanText(value).toLowerCase();
-}
-
-function intakeFromFoodInstructions(instructions) {
-  const value = normalizeSearch(instructions);
-  if (/empty stomach|before a meal|before meal/.test(value)) {
-    return "empty";
-  }
-  if (/with food|with meals|with meal|milk|stomach upset/.test(value)) {
-    return "food";
-  }
-  if (/water/.test(value)) {
-    return "water";
-  }
-  return "water";
-}
-
-function commonUseValue(value) {
-  return cleanText(value)
-    .replace(/^for\s+/i, "")
-    .replace(/\s+/g, " ");
-}
-
-function commonUseLabel(value) {
-  return titleCase(commonUseValue(value));
-}
-
-function parseCommonUses(value) {
-  const seen = new Set();
-  return String(value || "")
-    .split(",")
-    .map(cleanText)
-    .filter(Boolean)
-    .filter((use) => {
-      const key = normalizeSearch(use);
-      if (seen.has(key)) {
-        return false;
-      }
-      seen.add(key);
-      return true;
-    });
-}
-
-function scheduleMapForForm(med) {
-  const schedule = {};
-  slotDefinitions.forEach((slot) => {
-    schedule[slot.id] = { checked: !med && slot.id === "morning", time: slot.time };
-  });
-  if (med) {
-    normalizedSchedule(med).forEach((slot) => {
-      if (schedule[slot.id]) {
-        schedule[slot.id] = { checked: true, time: slot.time };
-      }
-    });
-  }
-  return schedule;
-}
-
-function doseKey(medId, slotId) {
-  return `${slug(medId)}_${slug(slotId)}`;
-}
-
-function todayKey() {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
-function fullDateLabel() {
-  return new Intl.DateTimeFormat(undefined, {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-  }).format(new Date());
-}
-
-function minutesFromTime(time = "00:00") {
-  const [hours, minutes] = String(time).split(":").map(Number);
-  return (Number.isFinite(hours) ? hours : 0) * 60 + (Number.isFinite(minutes) ? minutes : 0);
-}
-
-function currentMinutes() {
-  const now = new Date();
-  return now.getHours() * 60 + now.getMinutes();
-}
-
-function formatClock(time) {
-  return formatMinutes(minutesFromTime(time));
-}
-
-function formatMinutes(totalMinutes) {
-  const minutes = ((totalMinutes % 1440) + 1440) % 1440;
-  const hours = Math.floor(minutes / 60);
-  const mins = minutes % 60;
-  return new Intl.DateTimeFormat(undefined, {
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(new Date(2024, 0, 1, hours, mins));
-}
-
-function statusLabel(status) {
-  if (status === "auto-missed") {
-    return "Past due";
-  }
-  if (status === "due") {
-    return "Due";
-  }
-  return titleCase(status);
-}
-
-function titleCase(value) {
-  return String(value || "")
-    .replace(/-/g, " ")
-    .replace(/\b\w/g, (char) => char.toUpperCase());
-}
-
-function initialsForUser(user) {
-  const source = user.displayName || user.email || "M";
-  return source
-    .split(/\s|@/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0].toUpperCase())
-    .join("");
-}
-
-function cleanText(value) {
-  return String(value || "").trim();
-}
-
-function slug(value) {
-  return String(value || "dose").replace(/[^a-z0-9_-]/gi, "_");
-}
-
-function messageFromError(error) {
-  if (!error) {
-    return "Something went wrong.";
-  }
-
-  if (error.code === "permission-denied" || /missing or insufficient permissions/i.test(error.message || "")) {
-    return "Firebase denied this save. Publish the Firestore rules in firestore.rules so signed-in users can read and write their own medications.";
-  }
-
-  const message = error.message || String(error);
-  return message.replace(/^Firebase:\s*/i, "").replace(/\s*\([^)]*\)\.?$/, ".");
-}
-
-function escapeHtml(value) {
-  return String(value ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
-}
-
-function escapeAttribute(value) {
-  return escapeHtml(value).replace(/`/g, "&#096;");
 }
