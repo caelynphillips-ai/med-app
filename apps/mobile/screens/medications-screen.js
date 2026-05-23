@@ -38,6 +38,7 @@ export function MedicationsScreen({ medications, onNavigate }) {
           <Text selectable style={styles.emptyText}>
             Add your first medication, vitamin, or supplement to start building today's schedule.
           </Text>
+          <ActionButton onPress={() => onNavigate({ route: routes.medicationForm })}>Add medication</ActionButton>
         </View>
       )}
     </View>
@@ -111,6 +112,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.light,
     borderCurve: "continuous",
     borderRadius: radius.lg,
+    alignItems: "flex-start",
     gap: spacing.sm,
     padding: spacing.lg,
   },

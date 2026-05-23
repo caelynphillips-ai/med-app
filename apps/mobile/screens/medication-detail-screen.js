@@ -8,6 +8,8 @@ import { colors, radius, shadows, spacing, typography } from "../theme/tokens.js
 import { routes } from "../navigation/routes.js";
 
 export function MedicationDetailScreen({ medication, onDelete, onNavigate }) {
+  const [deleting, setDeleting] = React.useState(false);
+
   if (!medication) {
     return (
       <View style={styles.screen}>
@@ -28,8 +30,13 @@ export function MedicationDetailScreen({ medication, onDelete, onNavigate }) {
         text: "Delete",
         style: "destructive",
         onPress: async () => {
-          await onDelete(medication.id);
-          onNavigate({ route: routes.medications });
+          setDeleting(true);
+          try {
+            await onDelete(medication.id);
+            onNavigate({ route: routes.medications });
+          } catch {
+            setDeleting(false);
+          }
         },
       },
     ]);
@@ -38,15 +45,15 @@ export function MedicationDetailScreen({ medication, onDelete, onNavigate }) {
   return (
     <View style={styles.screen}>
       <View style={styles.headerRow}>
-        <ActionButton tone="quiet" onPress={() => onNavigate({ route: routes.medications })}>
+        <ActionButton disabled={deleting} tone="quiet" onPress={() => onNavigate({ route: routes.medications })}>
           Back
         </ActionButton>
         <View style={styles.headerActions}>
-          <ActionButton tone="quiet" onPress={() => onNavigate({ route: routes.medicationForm, medicationId: medication.id })}>
+          <ActionButton disabled={deleting} tone="quiet" onPress={() => onNavigate({ route: routes.medicationForm, medicationId: medication.id })}>
             Edit
           </ActionButton>
-          <ActionButton tone="danger" onPress={confirmDelete}>
-            Delete
+          <ActionButton disabled={deleting} tone="danger" onPress={confirmDelete}>
+            {deleting ? "Deleting..." : "Delete"}
           </ActionButton>
         </View>
       </View>

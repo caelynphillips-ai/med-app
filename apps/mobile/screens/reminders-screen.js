@@ -47,6 +47,7 @@ export function RemindersScreen({ medications, onNavigate }) {
           <Text selectable style={styles.emptyText}>
             Turn on reminder-style cards while adding or editing a medication.
           </Text>
+          <ActionButton onPress={() => onNavigate({ route: routes.medicationForm })}>Add medication</ActionButton>
         </View>
       )}
     </View>
@@ -71,6 +72,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.light,
     borderCurve: "continuous",
     borderRadius: radius.lg,
+    alignItems: "flex-start",
     gap: spacing.sm,
     padding: spacing.lg,
   },

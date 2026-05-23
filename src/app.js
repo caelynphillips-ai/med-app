@@ -761,7 +761,7 @@ function renderMedicationDetail(med) {
         <div class="detail-actions">
           <button class="button tonal" type="button" data-action="navigate" data-view="dashboard">Back</button>
           <button class="button tonal" type="button" data-action="edit-medication" data-id="${escapeHtml(med.id)}">Edit</button>
-          <button class="button danger" type="button" data-action="delete-medication" data-id="${escapeHtml(med.id)}">Delete</button>
+          <button class="button danger" type="button" data-action="delete-medication" data-id="${escapeHtml(med.id)}" ${state.busy ? "disabled" : ""}>${state.busy ? "Deleting..." : "Delete"}</button>
         </div>
       </div>
 
@@ -976,8 +976,8 @@ function renderMedicationForm(med = null) {
           </div>
         </div>
         <div class="form-actions">
-          <button class="button primary" type="submit" ${state.busy ? "disabled" : ""}>Save medication</button>
-          <button class="button secondary" type="button" data-action="cancel-form">Cancel</button>
+          <button class="button primary" type="submit" ${state.busy ? "disabled" : ""}>${state.busy ? "Saving..." : "Save medication"}</button>
+          <button class="button secondary" type="button" data-action="cancel-form" ${state.busy ? "disabled" : ""}>Cancel</button>
         </div>
       </form>
     </section>

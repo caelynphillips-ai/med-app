@@ -161,6 +161,14 @@ export function MedicationFormScreen({ medication, onNavigate, onSave }) {
       setError("Medication name is required.");
       return;
     }
+    if (!form.purpose.trim()) {
+      setError("Add a purpose so the medication is easier to recognize later.");
+      return;
+    }
+    if (!form.dosage.trim()) {
+      setError("Add a dosage from the label or type your own.");
+      return;
+    }
 
     const selectedSchedule = defaultScheduleSlots
       .filter((slot) => schedule[slot.id]?.checked)
@@ -216,7 +224,7 @@ export function MedicationFormScreen({ medication, onNavigate, onSave }) {
             {editing ? "Edit medication" : "Add medication"}
           </Text>
         </View>
-        <ActionButton tone="quiet" onPress={() => onNavigate({ route: medication?.id ? routes.medicationDetail : routes.medications, medicationId: medication?.id })}>
+        <ActionButton disabled={saving} tone="quiet" onPress={() => onNavigate({ route: medication?.id ? routes.medicationDetail : routes.medications, medicationId: medication?.id })}>
           Cancel
         </ActionButton>
       </View>
@@ -402,7 +410,7 @@ export function MedicationFormScreen({ medication, onNavigate, onSave }) {
         </Field>
 
         <View style={styles.footer}>
-          <ActionButton tone="quiet" onPress={() => onNavigate({ route: medication?.id ? routes.medicationDetail : routes.medications, medicationId: medication?.id })}>
+          <ActionButton disabled={saving} tone="quiet" onPress={() => onNavigate({ route: medication?.id ? routes.medicationDetail : routes.medications, medicationId: medication?.id })}>
             Cancel
           </ActionButton>
           <ActionButton disabled={saving} onPress={submit}>

@@ -36,9 +36,21 @@ export function MobileApp() {
         user={mobile.user}
       >
         {mobile.loading ? (
-          <Text selectable style={{ color: colors.text, fontSize: 16, fontWeight: "800" }}>
-            Loading your organizer...
-          </Text>
+          <View
+            style={{
+              backgroundColor: colors.light,
+              borderRadius: 18,
+              gap: 6,
+              padding: 18,
+            }}
+          >
+            <Text selectable style={{ color: colors.text, fontSize: 16, fontWeight: "900" }}>
+              Loading your organizer
+            </Text>
+            <Text selectable style={{ color: colors.mutedText, fontSize: 13, fontWeight: "700", lineHeight: 18 }}>
+              Getting your medications and today's schedule ready.
+            </Text>
+          </View>
         ) : (
           renderRoute(route, mobile, selectedMedication, navigate)
         )}

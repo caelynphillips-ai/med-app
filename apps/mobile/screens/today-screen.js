@@ -34,25 +34,45 @@ export function TodayScreen({ medications, statuses, onMarkDose, useSampleFallba
       </View>
 
       <View style={styles.section}>
-        {doses.map((dose) => (
-          <DoseCard key={dose.key} dose={dose} onStatusChange={markDose} />
-        ))}
+        {doses.length ? (
+          doses.map((dose) => <DoseCard key={dose.key} dose={dose} onStatusChange={markDose} />)
+        ) : (
+          <View style={styles.empty}>
+            <Text selectable style={styles.emptyTitle}>
+              No doses scheduled today
+            </Text>
+            <Text selectable style={styles.emptyText}>
+              Add a medication with a time of day to build this schedule.
+            </Text>
+          </View>
+        )}
       </View>
 
       <View style={styles.section}>
         <Text selectable style={styles.sectionTitle}>
           Reminders
         </Text>
-        {reminderCards.map((medication) => (
-          <View key={medication.name} style={styles.reminderCard}>
-            <Text selectable style={styles.reminderText}>
-              {formatClock(medication.schedule?.[0]?.time || "09:00")} dose
+        {reminderCards.length ? (
+          reminderCards.map((medication) => (
+            <View key={medication.name} style={styles.reminderCard}>
+              <Text selectable style={styles.reminderText}>
+                {formatClock(medication.schedule?.[0]?.time || "09:00")} dose
+              </Text>
+              <Text selectable style={styles.reminderTitle}>
+                {medication.name} - {medication.reminder.leadMinutes} min before
+              </Text>
+            </View>
+          ))
+        ) : (
+          <View style={styles.empty}>
+            <Text selectable style={styles.emptyTitle}>
+              No reminder cards turned on
             </Text>
-            <Text selectable style={styles.reminderTitle}>
-              {medication.name} - {medication.reminder.leadMinutes} min before
+            <Text selectable style={styles.emptyText}>
+              Turn on reminder-style cards while adding or editing a medication.
             </Text>
           </View>
-        ))}
+        )}
       </View>
 
       <DisclaimerCard />
@@ -61,6 +81,23 @@ export function TodayScreen({ medications, statuses, onMarkDose, useSampleFallba
 }
 
 const styles = StyleSheet.create({
+  empty: {
+    backgroundColor: colors.light,
+    borderCurve: "continuous",
+    borderRadius: 14,
+    gap: spacing.sm,
+    padding: spacing.lg,
+  },
+  emptyText: {
+    color: colors.text,
+    fontSize: typography.body,
+    lineHeight: 22,
+  },
+  emptyTitle: {
+    color: colors.text,
+    fontSize: typography.heading,
+    fontWeight: "900",
+  },
   eyebrow: {
     color: colors.primary,
     fontSize: typography.label,

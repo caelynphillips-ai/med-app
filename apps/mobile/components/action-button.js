@@ -6,6 +6,7 @@ export function ActionButton({ children, disabled, tone = "primary", onPress }) 
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityState={{ disabled: Boolean(disabled) }}
       disabled={disabled}
       onPress={onPress}
       style={({ pressed }) => [
