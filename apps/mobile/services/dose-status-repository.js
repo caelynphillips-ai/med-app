@@ -1,5 +1,5 @@
 import { doc, onSnapshot, serverTimestamp, setDoc } from "firebase/firestore";
-import { db, MOBILE_CLIENT_NAME } from "./firebase-client.js";
+import { db, MOBILE_CLIENT_NAME } from "./firebase-client";
 
 export function subscribeToDoseStatusRecord(uid, dateKey, onStatuses, onError) {
   return onSnapshot(

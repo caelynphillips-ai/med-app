@@ -1,7 +1,7 @@
 import { collection, doc, getDoc, getDocs, limit, query, serverTimestamp, setDoc, writeBatch } from "firebase/firestore";
 import { MEDICATION_SCHEMA_VERSION } from "../../../shared/medicationSchema.js";
 import { sampleMedications } from "../../../shared/sampleMedications.js";
-import { db, MOBILE_CLIENT_NAME } from "./firebase-client.js";
+import { db, MOBILE_CLIENT_NAME } from "./firebase-client";
 
 export async function ensureSampleData(user) {
   const settingsRef = doc(db, "users", user.uid, "appMeta", "settings");

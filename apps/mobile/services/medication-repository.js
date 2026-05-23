@@ -9,7 +9,7 @@ import {
   serverTimestamp,
   updateDoc,
 } from "firebase/firestore";
-import { db } from "./firebase-client.js";
+import { db } from "./firebase-client";
 
 export function subscribeToMedicationRecords(uid, onMedications, onError) {
   const medsQuery = query(collection(db, "users", uid, "medications"), orderBy("createdAt", "asc"));

@@ -1,5 +1,5 @@
 import { deleteObject, getDownloadURL, ref, uploadBytes } from "firebase/storage";
-import { storage } from "./firebase-client.js";
+import { storage } from "./firebase-client";
 
 export async function uploadMedicationAttachment(uid, medicationId, file) {
   const safeName = file.name.replace(/[^a-z0-9._-]/gi, "_");

@@ -4,7 +4,7 @@ import { MEDICATION_SCHEMA_VERSION } from "../../../shared/medicationSchema.js";
 import { todayKey } from "../../../shared/dateTime.js";
 import { observeAuthState, signInWithGoogle, signOutUser, startFirebasePreviewSession } from "../services/auth-service.js";
 import { saveDoseStatusRecord, subscribeToDoseStatusRecord } from "../services/dose-status-repository.js";
-import { MOBILE_CLIENT_NAME } from "../services/firebase-client.js";
+import { MOBILE_CLIENT_NAME } from "../services/firebase-client";
 import {
   deleteMedicationRecord,
   saveMedicationRecord,

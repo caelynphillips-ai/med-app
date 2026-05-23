@@ -1,6 +1,6 @@
 import { Platform } from "react-native";
 import { onAuthStateChanged, signInAnonymously, signInWithPopup, signOut } from "firebase/auth";
-import { auth, googleProvider } from "./firebase-client.js";
+import { auth, googleProvider } from "./firebase-client";
 
 export function observeAuthState(onChange) {
   return onAuthStateChanged(auth, onChange);
