@@ -11,6 +11,7 @@ import { routes } from "../navigation/routes.js";
 export function MedicationDetailScreen({ medication, onDelete, onNavigate }) {
   const [deleting, setDeleting] = React.useState(false);
   const refillInfo = getRefillInfo(medication);
+  const schedule = medication ? normalizedSchedule(medication) : [];
 
   if (!medication) {
     return (
@@ -60,12 +61,15 @@ export function MedicationDetailScreen({ medication, onDelete, onNavigate }) {
         </View>
       </View>
 
-      <View>
+      <View style={styles.titleBlock}>
         <Text selectable style={styles.eyebrow}>
           {(categoryLabels[medication.category] || medication.category || "Medication").toUpperCase()}
         </Text>
         <Text selectable style={styles.title}>
           {medication.name}
+        </Text>
+        <Text selectable style={styles.subtitle}>
+          Purpose, schedule, refill details, and notes in one place.
         </Text>
       </View>
 
@@ -81,16 +85,22 @@ export function MedicationDetailScreen({ medication, onDelete, onNavigate }) {
         <Text selectable style={styles.cardTitle}>
           Schedule
         </Text>
-        {normalizedSchedule(medication).map((slot) => (
-          <View key={slot.id} style={styles.scheduleRow}>
-            <Text selectable style={styles.scheduleLabel}>
-              {slot.label}
-            </Text>
-            <Text selectable style={styles.scheduleTime}>
-              {formatClock(slot.time)}
-            </Text>
-          </View>
-        ))}
+        {schedule.length ? (
+          schedule.map((slot) => (
+            <View key={slot.id} style={styles.scheduleRow}>
+              <Text selectable style={styles.scheduleLabel}>
+                {slot.label}
+              </Text>
+              <Text selectable style={styles.scheduleTime}>
+                {formatClock(slot.time)}
+              </Text>
+            </View>
+          ))
+        ) : (
+          <Text selectable style={styles.emptyCopy}>
+            No schedule times saved.
+          </Text>
+        )}
       </View>
 
       <View style={styles.card}>
@@ -149,6 +159,12 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontSize: typography.label,
     fontWeight: "900",
+  },
+  emptyCopy: {
+    color: colors.mutedText,
+    flexBasis: "100%",
+    fontSize: typography.body,
+    lineHeight: 22,
   },
   headerActions: {
     flexDirection: "row",
@@ -213,5 +229,13 @@ const styles = StyleSheet.create({
     fontSize: typography.title,
     fontWeight: "900",
     lineHeight: 40,
+  },
+  titleBlock: {
+    gap: spacing.xs,
+  },
+  subtitle: {
+    color: colors.mutedText,
+    fontSize: typography.body,
+    lineHeight: 22,
   },
 });

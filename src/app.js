@@ -786,6 +786,19 @@ function renderActiveView() {
   return renderDashboard();
 }
 
+function renderPageIntro(text) {
+  return `<p class="page-intro">${escapeHtml(text)}</p>`;
+}
+
+function renderSectionHeading(title, body = "") {
+  return `
+    <div class="section-heading">
+      <h3 class="section-title">${escapeHtml(title)}</h3>
+      ${body ? `<p class="subtle">${escapeHtml(body)}</p>` : ""}
+    </div>
+  `;
+}
+
 function renderDashboard() {
   const doses = getTodayDoses();
   const takenCount = doses.filter((dose) => dose.status === "taken").length;
@@ -798,6 +811,7 @@ function renderDashboard() {
         <div>
           <p class="eyebrow">${escapeHtml(fullDateLabel())}</p>
           <h2 class="page-title">Today's schedule</h2>
+          ${renderPageIntro("Review today's doses and mark each one as taken, skipped, or missed.")}
         </div>
         <div class="toolbar">
           <button class="button primary" type="button" data-action="add-medication">Add medication</button>
@@ -822,6 +836,7 @@ function renderDashboard() {
 
       <div class="grid dashboard-grid">
         <section class="grid" aria-label="Dose schedule">
+          ${renderSectionHeading("Dose schedule", "Sorted by time for today.")}
           ${
             doses.length
               ? `<div class="schedule-list">${doses.map(renderDoseCard).join("")}</div>`
@@ -861,6 +876,7 @@ function renderHistory() {
         <div>
           <p class="eyebrow">Last 7 days</p>
           <h2 class="page-title">History</h2>
+          ${renderPageIntro("A simple view of the dose statuses you have marked recently.")}
         </div>
         <button class="button tonal" type="button" data-action="navigate" data-view="dashboard">Today</button>
       </div>
@@ -934,6 +950,7 @@ function renderPrivacy() {
         <div>
           <p class="eyebrow">Account and privacy</p>
           <h2 class="page-title">Privacy</h2>
+          ${renderPageIntro("Export your information and review how this organizer stores data.")}
         </div>
         <button class="button text" type="button" data-action="sign-out" ${state.busy ? "disabled" : ""}>Sign out</button>
       </div>
@@ -1063,6 +1080,7 @@ function renderMedicationList() {
         <div>
           <p class="eyebrow" id="med-list-count-label">${escapeHtml(renderMedicationListCount(visibleMeds.length))}</p>
           <h2 class="page-title">Medication list</h2>
+          ${renderPageIntro("Search, filter, and open details without changing saved data.")}
         </div>
         <button class="button primary" type="button" data-action="add-medication">Add medication</button>
       </div>
@@ -1225,6 +1243,7 @@ function renderMedicationDetail(med) {
         <div>
           <p class="eyebrow">${escapeHtml(categories[med.category] || med.category)}</p>
           <h2 class="page-title">${escapeHtml(med.name)}</h2>
+          ${renderPageIntro("Purpose, schedule, refill details, and notes in one place.")}
         </div>
         <div class="detail-actions">
           <button class="button tonal" type="button" data-action="navigate" data-view="dashboard">Back</button>
@@ -1334,11 +1353,16 @@ function renderMedicationForm(med = null) {
         <div>
           <p class="eyebrow">${isEditing ? "Edit medication" : "New medication"}</p>
           <h2 class="page-title">${isEditing ? escapeHtml(med.name) : "Add medication"}</h2>
+          ${renderPageIntro("Use the label as the source of truth. Every suggestion stays editable before saving.")}
         </div>
       </div>
 
       <form id="medication-form" class="form-card">
         <div class="form-grid">
+          <div class="form-section-label full">
+            <h3>Medication basics</h3>
+            <p>Start with the name, purpose, category, and dosage you want to see later.</p>
+          </div>
           <div class="top-form-stack full">
             <div class="field autocomplete-field">
               <label for="name">Name</label>
@@ -1391,6 +1415,10 @@ function renderMedicationForm(med = null) {
             <div id="dosage-suggestions" class="inline-suggestion-panel" aria-live="polite" ${suggestionRecord?.strengthsAndForms?.length ? "" : "hidden"}>
               ${suggestionRecord?.strengthsAndForms?.length ? renderDosageSuggestions(suggestionRecord) : ""}
             </div>
+          </div>
+          <div class="form-section-label full">
+            <h3>Schedule and reminders</h3>
+            <p>Choose when this medication appears in the daily schedule.</p>
           </div>
           <div class="field">
             <label for="timesPerDay">Times per day</label>
@@ -1449,6 +1477,10 @@ function renderMedicationForm(med = null) {
             <input type="checkbox" name="reminderEnabled" ${med?.reminder?.enabled ? "checked" : ""} />
             Show reminder-style cards in the app
           </label>
+          <div class="form-section-label full">
+            <h3>Refill and notes</h3>
+            <p>Optional supply details, notes, and label attachments stay with this medication.</p>
+          </div>
           <fieldset class="field full">
             <legend class="fieldset-label">Refill tracking</legend>
             <div class="form-grid compact-grid">
@@ -1887,6 +1919,7 @@ function renderReminders() {
         <div>
           <p class="eyebrow">In-app reminders</p>
           <h2 class="page-title">Reminder cards</h2>
+          ${renderPageIntro("Reminder cards follow the schedules and lead times you already set.")}
         </div>
         <button class="button primary" type="button" data-action="add-medication">Add medication</button>
       </div>

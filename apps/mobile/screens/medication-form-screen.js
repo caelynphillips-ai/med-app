@@ -227,12 +227,15 @@ export function MedicationFormScreen({ medication, onNavigate, onSave }) {
   return (
     <View style={styles.screen}>
       <View style={styles.headerRow}>
-        <View>
+        <View style={styles.titleBlock}>
           <Text selectable style={styles.eyebrow}>
             {editing ? "EDIT" : "ADD"}
           </Text>
           <Text selectable style={styles.title}>
             {editing ? "Edit medication" : "Add medication"}
+          </Text>
+          <Text selectable style={styles.subtitle}>
+            Use the label as the source of truth. Every suggestion stays editable before saving.
           </Text>
         </View>
         <ActionButton disabled={saving} tone="quiet" onPress={() => onNavigate({ route: medication?.id ? routes.medicationDetail : routes.medications, medicationId: medication?.id })}>
@@ -249,6 +252,11 @@ export function MedicationFormScreen({ medication, onNavigate, onSave }) {
       ) : null}
 
       <View style={styles.formCard}>
+        <SectionLabel
+          title="Medication basics"
+          body="Start with the name, purpose, category, and dosage you want to see later."
+        />
+
         <Field label="Name">
           <TextInput
             autoCapitalize="words"
@@ -332,6 +340,11 @@ export function MedicationFormScreen({ medication, onNavigate, onSave }) {
           ) : null}
         </Field>
 
+        <SectionLabel
+          title="Schedule and reminders"
+          body="Choose when this medication appears in the daily schedule."
+        />
+
         <View style={styles.row}>
           <Field label="Times per day" style={styles.rowField}>
             <TextInput
@@ -408,6 +421,11 @@ export function MedicationFormScreen({ medication, onNavigate, onSave }) {
           />
         </View>
 
+        <SectionLabel
+          title="Refill and notes"
+          body="Optional supply details and notes stay with this medication."
+        />
+
         <Field label="Refill tracking">
           <View style={styles.row}>
             <Field label="Quantity remaining" style={styles.rowField}>
@@ -475,6 +493,19 @@ export function MedicationFormScreen({ medication, onNavigate, onSave }) {
           </ActionButton>
         </View>
       </View>
+    </View>
+  );
+}
+
+function SectionLabel({ body, title }) {
+  return (
+    <View style={styles.sectionLabel}>
+      <Text selectable style={styles.sectionTitle}>
+        {title}
+      </Text>
+      <Text selectable style={styles.sectionCopy}>
+        {body}
+      </Text>
     </View>
   );
 }
@@ -615,6 +646,19 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     padding: spacing.sm,
   },
+  sectionCopy: {
+    color: colors.mutedText,
+    fontSize: typography.small,
+    lineHeight: 18,
+  },
+  sectionLabel: {
+    gap: spacing.xs,
+  },
+  sectionTitle: {
+    color: colors.text,
+    fontSize: typography.heading,
+    fontWeight: "900",
+  },
   scheduleLabel: {
     color: colors.text,
     flex: 1,
@@ -667,6 +711,11 @@ const styles = StyleSheet.create({
     fontSize: typography.body,
     fontWeight: "900",
   },
+  subtitle: {
+    color: colors.mutedText,
+    fontSize: typography.body,
+    lineHeight: 22,
+  },
   textArea: {
     minHeight: 110,
   },
@@ -687,5 +736,9 @@ const styles = StyleSheet.create({
     fontSize: typography.title,
     fontWeight: "900",
     lineHeight: 40,
+  },
+  titleBlock: {
+    flex: 1,
+    gap: spacing.xs,
   },
 });

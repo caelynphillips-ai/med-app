@@ -25,6 +25,9 @@ export function TodayScreen({ medications, statuses, onMarkDose, useSampleFallba
         <Text selectable style={styles.title}>
           Today's schedule
         </Text>
+        <Text selectable style={styles.subtitle}>
+          Review today's doses and mark each one as you go.
+        </Text>
       </View>
 
       <View style={styles.summaryGrid}>
@@ -34,6 +37,14 @@ export function TodayScreen({ medications, statuses, onMarkDose, useSampleFallba
       </View>
 
       <View style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <Text selectable style={styles.sectionTitle}>
+            Dose schedule
+          </Text>
+          <Text selectable style={styles.sectionSubtitle}>
+            Sorted by time for today.
+          </Text>
+        </View>
         {doses.length ? (
           doses.map((dose) => <DoseCard key={dose.key} dose={dose} onStatusChange={markDose} />)
         ) : (
@@ -129,10 +140,23 @@ const styles = StyleSheet.create({
   section: {
     gap: spacing.md,
   },
+  sectionHeader: {
+    gap: spacing.xs,
+  },
+  sectionSubtitle: {
+    color: colors.mutedText,
+    fontSize: typography.small,
+    lineHeight: 18,
+  },
   sectionTitle: {
     color: colors.text,
     fontSize: typography.heading,
     fontWeight: "900",
+  },
+  subtitle: {
+    color: colors.mutedText,
+    fontSize: typography.body,
+    lineHeight: 22,
   },
   summaryGrid: {
     flexDirection: "row",

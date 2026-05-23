@@ -40,12 +40,15 @@ export function MedicationsScreen({ medications, onNavigate }) {
   return (
     <View style={styles.screen}>
       <View style={styles.headerRow}>
-        <View>
+        <View style={styles.titleBlock}>
           <Text selectable style={styles.eyebrow}>
             {countLabel.toUpperCase()}
           </Text>
           <Text selectable style={styles.title}>
             Medication list
+          </Text>
+          <Text selectable style={styles.subtitle}>
+            Search, filter, and open details without changing saved data.
           </Text>
         </View>
         <ActionButton onPress={() => onNavigate({ route: routes.medicationForm })}>Add</ActionButton>
@@ -354,5 +357,14 @@ const styles = StyleSheet.create({
     fontSize: typography.title,
     fontWeight: "900",
     lineHeight: 40,
+  },
+  titleBlock: {
+    flex: 1,
+    gap: spacing.xs,
+  },
+  subtitle: {
+    color: colors.mutedText,
+    fontSize: typography.body,
+    lineHeight: 22,
   },
 });

@@ -23,6 +23,9 @@ export function HistoryScreen({ medications, historyLoading, historyStatuses }) 
         <Text selectable style={styles.title}>
           History
         </Text>
+        <Text selectable style={styles.subtitle}>
+          Based on doses you marked taken, skipped, or missed.
+        </Text>
       </View>
 
       {historyLoading ? (
@@ -265,5 +268,10 @@ const styles = StyleSheet.create({
   },
   titleBlock: {
     gap: spacing.xs,
+  },
+  subtitle: {
+    color: colors.mutedText,
+    fontSize: typography.body,
+    lineHeight: 22,
   },
 });

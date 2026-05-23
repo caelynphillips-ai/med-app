@@ -12,12 +12,15 @@ export function RemindersScreen({ medications, onNavigate }) {
   return (
     <View style={styles.screen}>
       <View style={styles.headerRow}>
-        <View>
+        <View style={styles.titleBlock}>
           <Text selectable style={styles.eyebrow}>
             REMINDERS
           </Text>
           <Text selectable style={styles.title}>
             Reminder cards
+          </Text>
+          <Text selectable style={styles.subtitle}>
+            Cards and local reminders follow the schedules you already set.
           </Text>
         </View>
         <ActionButton onPress={() => onNavigate({ route: routes.medicationForm })}>Add</ActionButton>
@@ -115,5 +118,14 @@ const styles = StyleSheet.create({
     fontSize: typography.title,
     fontWeight: "900",
     lineHeight: 40,
+  },
+  titleBlock: {
+    flex: 1,
+    gap: spacing.xs,
+  },
+  subtitle: {
+    color: colors.mutedText,
+    fontSize: typography.body,
+    lineHeight: 22,
   },
 });

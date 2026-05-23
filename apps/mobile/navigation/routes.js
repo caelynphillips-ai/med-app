@@ -10,8 +10,8 @@ export const routes = {
 
 export const navItems = [
   { route: routes.today, label: "Today", icon: "T" },
-  { route: routes.medications, label: "Meds", icon: "M" },
+  { route: routes.medications, label: "List", icon: "M" },
   { route: routes.history, label: "History", icon: "H" },
-  { route: routes.reminders, label: "Reminders", icon: "R" },
+  { route: routes.reminders, label: "Remind", icon: "R" },
   { route: routes.privacy, label: "Privacy", icon: "P" },
 ];

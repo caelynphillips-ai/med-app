@@ -347,10 +347,27 @@ a {
   letter-spacing: 0;
 }
 
+.page-intro {
+  max-width: 620px;
+  margin: 8px 0 0;
+  color: var(--md-on-surface-variant);
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+
 .section-title {
   margin: 0;
   font-size: 1.3rem;
   letter-spacing: 0;
+}
+
+.section-heading {
+  display: grid;
+  gap: 4px;
+}
+
+.section-heading p {
+  margin: 0;
 }
 
 .subtle {
@@ -754,6 +771,33 @@ button.detail-item {
 
 .top-form-stack.full {
   grid-column: 1 / -1;
+}
+
+.form-section-label {
+  display: grid;
+  gap: 4px;
+  padding-top: 4px;
+}
+
+.form-section-label.full {
+  grid-column: 1 / -1;
+}
+
+.form-section-label h3,
+.form-section-label p {
+  margin: 0;
+}
+
+.form-section-label h3 {
+  color: var(--md-on-card);
+  font-size: 1.1rem;
+  font-weight: 900;
+}
+
+.form-section-label p {
+  color: var(--md-on-card-variant);
+  font-size: 0.9rem;
+  line-height: 1.4;
 }
 
 .field {

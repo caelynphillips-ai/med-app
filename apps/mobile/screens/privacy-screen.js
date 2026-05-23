@@ -49,6 +49,9 @@ export function PrivacyScreen({ busy, historyStatuses, medications, onSignOut, u
         <Text selectable style={styles.title}>
           Privacy
         </Text>
+        <Text selectable style={styles.subtitle}>
+          Export data and review how your organizer stores information.
+        </Text>
       </View>
 
       <InfoCard title="Medical disclaimer" body={medicalDisclaimer} />
@@ -188,5 +191,10 @@ const styles = StyleSheet.create({
   },
   titleBlock: {
     gap: spacing.xs,
+  },
+  subtitle: {
+    color: colors.mutedText,
+    fontSize: typography.body,
+    lineHeight: 22,
   },
 });
