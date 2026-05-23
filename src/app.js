@@ -33,6 +33,14 @@ import {
   normalizeRefillNumber,
 } from "../shared/refill.js";
 import {
+  defaultMedicationListControls,
+  filterAndSortMedications,
+  hasActiveMedicationListControls,
+  medicationCategoryFilterOptions,
+  medicationSortOptions,
+  medicationUtilityFilterOptions,
+} from "../shared/medicationList.js";
+import {
   buildAdherenceSummary,
   formatHistoryDateLabel,
   getRecentDateKeys,
@@ -67,6 +75,7 @@ const state = {
   activeSuggestionIndex: -1,
   liveSuggestions: [],
   liveSuggestionStatus: "idle",
+  medicationListControls: defaultMedicationListControls(),
 };
 
 void loadMedicationDatabase();
@@ -184,6 +193,10 @@ root.addEventListener("click", async (event) => {
   if (action === "remove-use") {
     removeCommonUseValue(control.dataset.value);
   }
+
+  if (action === "clear-medication-list-filters") {
+    resetMedicationListControls();
+  }
 });
 
 root.addEventListener("input", (event) => {
@@ -194,6 +207,21 @@ root.addEventListener("input", (event) => {
   if (event.target.matches("#purpose")) {
     updateSelectedUseChips();
   }
+
+  if (event.target.matches("#med-list-search")) {
+    state.medicationListControls.query = event.target.value;
+    updateMedicationListResults();
+  }
+});
+
+root.addEventListener("change", (event) => {
+  const control = event.target.closest("[data-med-list-control]");
+  if (!control) {
+    return;
+  }
+
+  state.medicationListControls[control.dataset.medListControl] = control.value;
+  updateMedicationListResults();
 });
 
 root.addEventListener("focusin", (event) => {
@@ -899,22 +927,131 @@ function renderDoseCard(dose) {
 }
 
 function renderMedicationList() {
+  const visibleMeds = getVisibleMedications();
   return `
     <section class="page">
       <div class="page-header">
         <div>
-          <p class="eyebrow">${state.meds.length} saved</p>
+          <p class="eyebrow" id="med-list-count-label">${escapeHtml(renderMedicationListCount(visibleMeds.length))}</p>
           <h2 class="page-title">Medication list</h2>
         </div>
         <button class="button primary" type="button" data-action="add-medication">Add medication</button>
       </div>
-      ${
-        state.meds.length
-          ? `<div class="grid med-grid">${state.meds.map(renderMedicationCard).join("")}</div>`
-          : renderEmptyState("No medications saved", "Add a prescription, over-the-counter medicine, vitamin, or supplement.", "Add medication")
-      }
+      ${state.meds.length ? renderMedicationListControls() : ""}
+      <div id="med-list-results" aria-live="polite">
+        ${renderMedicationListResults(visibleMeds)}
+      </div>
     </section>
   `;
+}
+
+function renderMedicationListControls() {
+  const controls = state.medicationListControls;
+  return `
+    <section class="list-controls" aria-label="Medication list controls">
+      <div class="field list-search-field">
+        <label for="med-list-search">Search medications</label>
+        <input
+          id="med-list-search"
+          type="search"
+          value="${escapeAttribute(controls.query)}"
+          placeholder="Search name, purpose, dosage, instructions, notes"
+        />
+      </div>
+      <div class="list-control-row">
+        ${renderMedicationListSelect("Category", "category", controls.category, medicationCategoryFilterOptions)}
+        ${renderMedicationListSelect("Status", "utility", controls.utility, medicationUtilityFilterOptions)}
+        ${renderMedicationListSelect("Sort by", "sort", controls.sort, medicationSortOptions)}
+        <button class="button tonal" type="button" data-action="clear-medication-list-filters">Clear filters</button>
+      </div>
+    </section>
+  `;
+}
+
+function renderMedicationListSelect(label, key, value, options) {
+  return `
+    <label class="field list-select-field">
+      <span>${escapeHtml(label)}</span>
+      <select data-med-list-control="${escapeAttribute(key)}">
+        ${options
+          .map(
+            (option) => `
+              <option value="${escapeAttribute(option.value)}" ${option.value === value ? "selected" : ""}>
+                ${escapeHtml(option.label)}
+              </option>
+            `,
+          )
+          .join("")}
+      </select>
+    </label>
+  `;
+}
+
+function renderMedicationListResults(visibleMeds = getVisibleMedications()) {
+  if (state.meds.length === 0) {
+    return renderEmptyState("No medications saved", "Add a prescription, over-the-counter medicine, vitamin, or supplement.", "Add medication");
+  }
+
+  if (visibleMeds.length === 0) {
+    return `
+      <div class="empty-state">
+        <h3>No medications match</h3>
+        <p class="subtle">Try a different search, category, status, or sort option.</p>
+        <button class="button primary" type="button" data-action="clear-medication-list-filters">Clear filters</button>
+      </div>
+    `;
+  }
+
+  return `<div class="grid med-grid">${visibleMeds.map(renderMedicationCard).join("")}</div>`;
+}
+
+function updateMedicationListResults() {
+  if (state.view !== "medications") {
+    return;
+  }
+
+  const visibleMeds = getVisibleMedications();
+  const countLabel = document.querySelector("#med-list-count-label");
+  const results = document.querySelector("#med-list-results");
+  if (countLabel) {
+    countLabel.textContent = renderMedicationListCount(visibleMeds.length);
+  }
+  if (results) {
+    results.innerHTML = renderMedicationListResults(visibleMeds);
+  }
+}
+
+function resetMedicationListControls() {
+  state.medicationListControls = defaultMedicationListControls();
+  const search = document.querySelector("#med-list-search");
+  const category = document.querySelector('[data-med-list-control="category"]');
+  const utility = document.querySelector('[data-med-list-control="utility"]');
+  const sort = document.querySelector('[data-med-list-control="sort"]');
+  if (search) {
+    search.value = state.medicationListControls.query;
+  }
+  if (category) {
+    category.value = state.medicationListControls.category;
+  }
+  if (utility) {
+    utility.value = state.medicationListControls.utility;
+  }
+  if (sort) {
+    sort.value = state.medicationListControls.sort;
+  }
+  updateMedicationListResults();
+}
+
+function getVisibleMedications() {
+  return filterAndSortMedications(state.meds, state.medicationListControls);
+}
+
+function renderMedicationListCount(visibleCount) {
+  const active = hasActiveMedicationListControls(state.medicationListControls);
+  if (state.meds.length === 0) {
+    return "0 saved";
+  }
+  return active ? `${visibleCount} of ${state.meds.length} shown` : `${state.meds.length} saved`;
 }
 
 function renderMedicationCard(med) {

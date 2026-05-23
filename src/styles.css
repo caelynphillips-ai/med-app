@@ -395,6 +395,36 @@ a {
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
 }
 
+.list-controls {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--md-outline-variant);
+  border-radius: var(--radius-card);
+  background: #ccf0ed;
+}
+
+.list-control-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 10px;
+}
+
+.list-search-field {
+  max-width: 720px;
+}
+
+.list-select-field {
+  min-width: 180px;
+}
+
+.list-select-field span {
+  color: var(--md-on-surface-variant);
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
 .card,
 .stat-card,
 .schedule-card,

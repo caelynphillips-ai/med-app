@@ -1,20 +1,48 @@
 import React from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { categoryLabels } from "../../../shared/medicationSchema.js";
 import { getRefillInfo, refillStatusLabel } from "../../../shared/refill.js";
 import { normalizedSchedule } from "../../../shared/schedule.js";
 import { formatClock } from "../../../shared/dateTime.js";
+import {
+  defaultMedicationListControls,
+  filterAndSortMedications,
+  hasActiveMedicationListControls,
+  medicationCategoryFilterOptions,
+  medicationSortOptions,
+  medicationUtilityFilterOptions,
+} from "../../../shared/medicationList.js";
 import { ActionButton } from "../components/action-button.js";
 import { colors, radius, shadows, spacing, typography } from "../theme/tokens.js";
 import { routes } from "../navigation/routes.js";
 
 export function MedicationsScreen({ medications, onNavigate }) {
+  const [controls, setControls] = React.useState(defaultMedicationListControls);
+  const visibleMedications = React.useMemo(() => filterAndSortMedications(medications, controls), [controls, medications]);
+  const filtersActive = hasActiveMedicationListControls(controls);
+  const countLabel = medications.length
+    ? filtersActive
+      ? `${visibleMedications.length} of ${medications.length} shown`
+      : `${medications.length} saved`
+    : "0 saved";
+
+  function updateControl(key, value) {
+    setControls((current) => ({
+      ...current,
+      [key]: value,
+    }));
+  }
+
+  function clearControls() {
+    setControls(defaultMedicationListControls());
+  }
+
   return (
     <View style={styles.screen}>
       <View style={styles.headerRow}>
         <View>
           <Text selectable style={styles.eyebrow}>
-            MEDICATIONS
+            {countLabel.toUpperCase()}
           </Text>
           <Text selectable style={styles.title}>
             Medication list
@@ -24,13 +52,32 @@ export function MedicationsScreen({ medications, onNavigate }) {
       </View>
 
       {medications.length ? (
-        medications.map((medication) => (
+        <MedicationListControls
+          controls={controls}
+          filtersActive={filtersActive}
+          onClear={clearControls}
+          onUpdate={updateControl}
+        />
+      ) : null}
+
+      {medications.length && visibleMedications.length ? (
+        visibleMedications.map((medication) => (
           <MedicationCard
             key={medication.id}
             medication={medication}
             onPress={() => onNavigate({ route: routes.medicationDetail, medicationId: medication.id })}
           />
         ))
+      ) : medications.length ? (
+        <View style={styles.empty}>
+          <Text selectable style={styles.emptyTitle}>
+            No medications match
+          </Text>
+          <Text selectable style={styles.emptyText}>
+            Try a different search, category, status, or sort option.
+          </Text>
+          <ActionButton onPress={clearControls}>Clear filters</ActionButton>
+        </View>
       ) : (
         <View style={styles.empty}>
           <Text selectable style={styles.emptyTitle}>
@@ -42,6 +89,77 @@ export function MedicationsScreen({ medications, onNavigate }) {
           <ActionButton onPress={() => onNavigate({ route: routes.medicationForm })}>Add medication</ActionButton>
         </View>
       )}
+    </View>
+  );
+}
+
+function MedicationListControls({ controls, filtersActive, onClear, onUpdate }) {
+  return (
+    <View style={styles.controlsCard}>
+      <View style={styles.field}>
+        <Text selectable style={styles.controlLabel}>
+          Search medications
+        </Text>
+        <TextInput
+          accessibilityLabel="Search medications"
+          onChangeText={(value) => onUpdate("query", value)}
+          placeholder="Search name, purpose, dosage, instructions, notes"
+          placeholderTextColor={colors.mutedText}
+          style={styles.searchInput}
+          value={controls.query}
+        />
+      </View>
+
+      <FilterGroup
+        label="Category"
+        options={medicationCategoryFilterOptions}
+        selectedValue={controls.category}
+        onSelect={(value) => onUpdate("category", value)}
+      />
+      <FilterGroup
+        label="Status"
+        options={medicationUtilityFilterOptions}
+        selectedValue={controls.utility}
+        onSelect={(value) => onUpdate("utility", value)}
+      />
+      <FilterGroup
+        label="Sort"
+        options={medicationSortOptions}
+        selectedValue={controls.sort}
+        onSelect={(value) => onUpdate("sort", value)}
+      />
+
+      {filtersActive ? (
+        <ActionButton tone="quiet" onPress={onClear}>
+          Clear filters
+        </ActionButton>
+      ) : null}
+    </View>
+  );
+}
+
+function FilterGroup({ label, onSelect, options, selectedValue }) {
+  return (
+    <View style={styles.field}>
+      <Text selectable style={styles.controlLabel}>
+        {label}
+      </Text>
+      <View style={styles.chipRow}>
+        {options.map((option) => {
+          const active = option.value === selectedValue;
+          return (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{ selected: active }}
+              key={option.value}
+              onPress={() => onSelect(option.value)}
+              style={[styles.filterChip, active && styles.filterChipActive]}
+            >
+              <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>{option.label}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
     </View>
   );
 }
@@ -97,6 +215,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: spacing.md,
   },
+  chipRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+  },
   category: {
     backgroundColor: colors.accent,
     borderCurve: "continuous",
@@ -138,6 +261,44 @@ const styles = StyleSheet.create({
     fontSize: typography.label,
     fontWeight: "900",
   },
+  controlLabel: {
+    color: colors.text,
+    fontSize: typography.label,
+    fontWeight: "900",
+  },
+  controlsCard: {
+    backgroundColor: colors.light,
+    borderColor: colors.border,
+    borderCurve: "continuous",
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    gap: spacing.md,
+    padding: spacing.lg,
+  },
+  field: {
+    gap: spacing.sm,
+  },
+  filterChip: {
+    backgroundColor: "rgba(63, 70, 63, 0.08)",
+    borderColor: colors.border,
+    borderCurve: "continuous",
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  filterChipActive: {
+    backgroundColor: colors.accent,
+    borderColor: colors.accent,
+  },
+  filterChipText: {
+    color: colors.text,
+    fontSize: typography.small,
+    fontWeight: "900",
+  },
+  filterChipTextActive: {
+    color: colors.text,
+  },
   headerRow: {
     alignItems: "center",
     flexDirection: "row",
@@ -167,6 +328,18 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: typography.label,
     fontWeight: "900",
+  },
+  searchInput: {
+    backgroundColor: colors.background,
+    borderColor: colors.border,
+    borderCurve: "continuous",
+    borderRadius: radius.md,
+    borderWidth: 1,
+    color: colors.text,
+    fontSize: typography.body,
+    minHeight: 48,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
   },
   schedule: {
     color: colors.text,
