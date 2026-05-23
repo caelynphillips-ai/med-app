@@ -6,7 +6,11 @@ import {
 import { categories, CLIENT_NAME, intakeLabels, MEDICATION_SCHEMA_VERSION, slotDefinitions } from "./config/constants.js";
 import { sampleMedications } from "./data/sampleMedications.js";
 import { observeAuthState, signInWithGoogle, signOutUser } from "./services/authService.js";
-import { subscribeToDoseStatusRecord, saveDoseStatusRecord } from "./services/doseStatusRepository.js";
+import {
+  getDoseStatusHistoryRecords,
+  subscribeToDoseStatusRecord,
+  saveDoseStatusRecord,
+} from "./services/doseStatusRepository.js";
 import {
   clearMedicationAttachment,
   deleteMedicationRecord,
@@ -28,6 +32,11 @@ import {
   refillThresholdLabel,
   normalizeRefillNumber,
 } from "../shared/refill.js";
+import {
+  buildAdherenceSummary,
+  formatHistoryDateLabel,
+  getRecentDateKeys,
+} from "../shared/adherence.js";
 import { doseKey, normalizedSchedule, scheduleMapForForm, statusLabel } from "./utils/schedule.js";
 import { cleanText, escapeAttribute, escapeHtml, initialsForUser, normalizeSearch, titleCase } from "./utils/text.js";
 const root = document.querySelector("#app");
@@ -45,6 +54,9 @@ const state = {
   editMode: false,
   meds: [],
   statuses: {},
+  historyStatuses: {},
+  historyLoading: false,
+  historyLoaded: false,
   toast: null,
   toastType: "info",
   unsubscribeMeds: null,
@@ -68,6 +80,9 @@ observeAuthState(async (user) => {
   state.loadingMeds = Boolean(user);
   state.meds = [];
   state.statuses = {};
+  state.historyStatuses = {};
+  state.historyLoading = false;
+  state.historyLoaded = false;
   state.selectedMedId = null;
   state.editMode = false;
   render();
@@ -88,6 +103,9 @@ observeAuthState(async (user) => {
 
   subscribeToMedications(user.uid);
   subscribeToDoseStatus(user.uid);
+  if (state.view === "history") {
+    void loadDoseHistory();
+  }
 });
 
 window.addEventListener("beforeunload", cleanupSubscriptions);
@@ -251,6 +269,10 @@ function subscribeToDoseStatus(uid) {
     todayKey(),
     (statuses) => {
       state.statuses = statuses;
+      state.historyStatuses = {
+        ...state.historyStatuses,
+        [todayKey()]: statuses,
+      };
       render();
     },
     (error) => {
@@ -426,6 +448,18 @@ async function markDose(doseKey, status) {
   setBusy(true);
   try {
     await saveDoseStatusRecord(state.user.uid, todayKey(), doseKey, status, CLIENT_NAME);
+    state.historyStatuses = {
+      ...state.historyStatuses,
+      [todayKey()]: {
+        ...(state.historyStatuses[todayKey()] || state.statuses),
+        [doseKey]: {
+          status,
+          updatedAt: new Date().toISOString(),
+          updatedBy: state.user.uid,
+          updatedFrom: CLIENT_NAME,
+        },
+      },
+    };
   } catch (error) {
     showToast(messageFromError(error), "error");
   } finally {
@@ -436,8 +470,35 @@ async function markDose(doseKey, status) {
 function setView(view) {
   state.view = view;
   localStorage.setItem("medOrganizerView", view);
+  if (view === "history" && state.user) {
+    void loadDoseHistory();
+  }
   render();
   window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+async function loadDoseHistory() {
+  if (!state.user || state.historyLoading) {
+    return;
+  }
+
+  state.historyLoading = true;
+  render();
+  try {
+    const dateKeys = getRecentDateKeys(7);
+    const records = await getDoseStatusHistoryRecords(state.user.uid, dateKeys);
+    const todayStatuses = Object.keys(state.statuses).length ? state.statuses : records[todayKey()] || {};
+    state.historyStatuses = {
+      ...records,
+      [todayKey()]: todayStatuses,
+    };
+    state.historyLoaded = true;
+  } catch (error) {
+    showToast(messageFromError(error), "error");
+  } finally {
+    state.historyLoading = false;
+    render();
+  }
 }
 
 function setBusy(value) {
@@ -575,6 +636,7 @@ function renderNavigation() {
   const links = [
     { view: "dashboard", label: "Today", icon: "T" },
     { view: "medications", label: "Medications", icon: "M" },
+    { view: "history", label: "History", icon: "H" },
     { view: "reminders", label: "Reminders", icon: "R" },
   ];
   return `
@@ -600,6 +662,10 @@ function renderActiveView() {
 
   if (state.view === "reminders") {
     return renderReminders();
+  }
+
+  if (state.view === "history") {
+    return renderHistory();
   }
 
   if (state.view === "add") {
@@ -670,6 +736,117 @@ function renderDashboard() {
         </aside>
       </div>
     </section>
+  `;
+}
+
+function renderHistory() {
+  const dateKeys = getRecentDateKeys(7);
+  const todayStatuses = Object.keys(state.statuses).length ? state.statuses : state.historyStatuses[todayKey()] || {};
+  const summary = buildAdherenceSummary(
+    dateKeys,
+    {
+      ...state.historyStatuses,
+      [todayKey()]: todayStatuses,
+    },
+    state.meds,
+  );
+  const adherenceValue = summary.adherencePercentage === null ? "No data" : `${summary.adherencePercentage}%`;
+
+  return `
+    <section class="page">
+      <div class="page-header">
+        <div>
+          <p class="eyebrow">Last 7 days</p>
+          <h2 class="page-title">History</h2>
+        </div>
+        <button class="button tonal" type="button" data-action="navigate" data-view="dashboard">Today</button>
+      </div>
+
+      ${state.historyLoading ? `<div class="loading-bar" aria-label="Loading dose history"></div>` : ""}
+
+      <div class="grid stats-grid">
+        <article class="stat-card">
+          <span>Adherence</span>
+          <strong>${escapeHtml(adherenceValue)}</strong>
+        </article>
+        <article class="stat-card">
+          <span>Taken</span>
+          <strong>${summary.totals.taken}</strong>
+        </article>
+        <article class="stat-card">
+          <span>Missed or skipped</span>
+          <strong>${summary.totals.missed + summary.totals.skipped}</strong>
+        </article>
+      </div>
+
+      ${
+        summary.hasHistory
+          ? `
+            <div class="history-layout">
+              <section class="card">
+                <h3 class="section-title">Day-by-day</h3>
+                <div class="history-day-list">
+                  ${[...summary.days]
+                    .reverse()
+                    .map(renderHistoryDay)
+                    .join("")}
+                </div>
+              </section>
+
+              <aside class="side-stack">
+                <div class="card">
+                  <h3 class="section-title">Recent missed doses</h3>
+                  <div class="missed-dose-list">
+                    ${
+                      summary.missedDoses.length
+                        ? summary.missedDoses.map(renderMissedDose).join("")
+                        : `<p class="subtle">No missed doses recorded in the last 7 days.</p>`
+                    }
+                  </div>
+                </div>
+                <div class="notice">
+                  <strong>How this is calculated</strong>
+                  <span>Adherence is taken doses divided by doses you marked taken, skipped, or missed.</span>
+                </div>
+              </aside>
+            </div>
+          `
+          : `
+            <div class="empty-state">
+              <h3>No dose history yet</h3>
+              <p class="subtle">Mark doses as taken, skipped, or missed to build your history.</p>
+              <button class="button primary" type="button" data-action="navigate" data-view="dashboard">Go to today</button>
+            </div>
+          `
+      }
+    </section>
+  `;
+}
+
+function renderHistoryDay(day) {
+  const percent = day.adherencePercentage === null ? "No data" : `${day.adherencePercentage}%`;
+  return `
+    <article class="history-day-card">
+      <div>
+        <strong>${escapeHtml(formatHistoryDateLabel(day.dateKey))}</strong>
+        <span>${escapeHtml(percent)}</span>
+      </div>
+      <div class="history-count-row" aria-label="Dose counts for ${escapeHtml(day.dateKey)}">
+        <span class="status-pill taken">${day.counts.taken} taken</span>
+        <span class="status-pill skipped">${day.counts.skipped} skipped</span>
+        <span class="status-pill missed">${day.counts.missed} missed</span>
+      </div>
+    </article>
+  `;
+}
+
+function renderMissedDose(dose) {
+  const time = dose.time ? ` at ${formatClock(dose.time)}` : "";
+  return `
+    <div class="detail-item">
+      <span>${escapeHtml(formatHistoryDateLabel(dose.dateKey))}${escapeHtml(time)}</span>
+      <strong>${escapeHtml(dose.medicationName)} - ${escapeHtml(dose.slotLabel)}</strong>
+    </div>
   `;
 }
 

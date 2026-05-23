@@ -1,4 +1,4 @@
-import { doc, onSnapshot, serverTimestamp, setDoc } from "firebase/firestore";
+import { doc, getDoc, onSnapshot, serverTimestamp, setDoc } from "firebase/firestore";
 import { db, MOBILE_CLIENT_NAME } from "./firebase-client";
 
 export function subscribeToDoseStatusRecord(uid, dateKey, onStatuses, onError) {
@@ -29,4 +29,14 @@ export async function saveDoseStatusRecord(uid, dateKey, doseKey, status) {
     },
     { merge: true },
   );
+}
+
+export async function getDoseStatusHistoryRecords(uid, dateKeys) {
+  const entries = await Promise.all(
+    dateKeys.map(async (dateKey) => {
+      const snapshot = await getDoc(doc(db, "users", uid, "doseStatus", dateKey));
+      return [dateKey, snapshot.exists() ? snapshot.data().statuses || {} : {}];
+    }),
+  );
+  return Object.fromEntries(entries);
 }

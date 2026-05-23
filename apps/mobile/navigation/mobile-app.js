@@ -3,6 +3,7 @@ import { StatusBar, Text, View } from "react-native";
 import { MobileShell } from "../components/mobile-shell.js";
 import { useMobileMedications } from "../hooks/use-mobile-medications.js";
 import { routes } from "./routes.js";
+import { HistoryScreen } from "../screens/history-screen.js";
 import { MedicationDetailScreen } from "../screens/medication-detail-screen.js";
 import { MedicationFormScreen } from "../screens/medication-form-screen.js";
 import { MedicationsScreen } from "../screens/medications-screen.js";
@@ -74,6 +75,16 @@ function renderRoute(route, mobile, selectedMedication, navigate) {
 
   if (route.route === routes.reminders) {
     return <RemindersScreen medications={mobile.medications} onNavigate={navigate} />;
+  }
+
+  if (route.route === routes.history) {
+    return (
+      <HistoryScreen
+        historyLoading={mobile.historyLoading}
+        historyStatuses={mobile.historyStatuses}
+        medications={mobile.medications}
+      />
+    );
   }
 
   return (

@@ -1,5 +1,6 @@
 import {
   doc,
+  getDoc,
   onSnapshot,
   serverTimestamp,
   setDoc,
@@ -36,4 +37,14 @@ export async function saveDoseStatusRecord(uid, dateKey, doseKey, status, client
     },
     { merge: true },
   );
+}
+
+export async function getDoseStatusHistoryRecords(uid, dateKeys) {
+  const entries = await Promise.all(
+    dateKeys.map(async (dateKey) => {
+      const snapshot = await getDoc(doc(db, "users", uid, "doseStatus", dateKey));
+      return [dateKey, snapshot.exists() ? snapshot.data().statuses || {} : {}];
+    }),
+  );
+  return Object.fromEntries(entries);
 }

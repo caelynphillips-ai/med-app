@@ -2,8 +2,13 @@ import { useEffect, useMemo, useState } from "react";
 import { Alert } from "react-native";
 import { MEDICATION_SCHEMA_VERSION } from "../../../shared/medicationSchema.js";
 import { todayKey } from "../../../shared/dateTime.js";
+import { getRecentDateKeys } from "../../../shared/adherence.js";
 import { observeAuthState, signInWithGoogle, signOutUser, startFirebasePreviewSession } from "../services/auth-service.js";
-import { saveDoseStatusRecord, subscribeToDoseStatusRecord } from "../services/dose-status-repository.js";
+import {
+  getDoseStatusHistoryRecords,
+  saveDoseStatusRecord,
+  subscribeToDoseStatusRecord,
+} from "../services/dose-status-repository.js";
 import { MOBILE_CLIENT_NAME } from "../services/firebase-client";
 import {
   deleteMedicationRecord,
@@ -26,6 +31,8 @@ export function useMobileMedications() {
   const [authReady, setAuthReady] = useState(false);
   const [medications, setMedications] = useState([]);
   const [statuses, setStatuses] = useState({});
+  const [historyStatuses, setHistoryStatuses] = useState({});
+  const [historyLoading, setHistoryLoading] = useState(false);
   const [loadingMeds, setLoadingMeds] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -41,6 +48,8 @@ export function useMobileMedications() {
       if (!nextUser) {
         setMedications([]);
         setStatuses({});
+        setHistoryStatuses({});
+        setHistoryLoading(false);
       }
     });
   }, []);
@@ -62,6 +71,24 @@ export function useMobileMedications() {
         if (cancelled) {
           return;
         }
+        setHistoryLoading(true);
+        void getDoseStatusHistoryRecords(user.uid, getRecentDateKeys(7))
+          .then((records) => {
+            if (!cancelled) {
+              setHistoryStatuses(records);
+            }
+          })
+          .catch((err) => {
+            if (!cancelled) {
+              logMobileError("Dose history load failed", err);
+              setError(describeMobileError(err, "Loading dose history"));
+            }
+          })
+          .finally(() => {
+            if (!cancelled) {
+              setHistoryLoading(false);
+            }
+          });
         unsubscribeMeds = subscribeToMedicationRecords(
           user.uid,
           (records) => {
@@ -78,10 +105,21 @@ export function useMobileMedications() {
             setLoadingMeds(false);
           },
         );
-        unsubscribeStatuses = subscribeToDoseStatusRecord(user.uid, dateKey, setStatuses, (err) => {
-          logMobileError("Dose status subscription failed", err);
-          setError(describeMobileError(err, "Loading dose statuses"));
-        });
+        unsubscribeStatuses = subscribeToDoseStatusRecord(
+          user.uid,
+          dateKey,
+          (nextStatuses) => {
+            setStatuses(nextStatuses);
+            setHistoryStatuses((current) => ({
+              ...current,
+              [dateKey]: nextStatuses,
+            }));
+          },
+          (err) => {
+            logMobileError("Dose status subscription failed", err);
+            setError(describeMobileError(err, "Loading dose statuses"));
+          },
+        );
       } catch (err) {
         logMobileError("Firebase data connection failed", err);
         setError(describeMobileError(err, "Connecting to Firebase"));
@@ -237,18 +275,38 @@ export function useMobileMedications() {
 
   async function markDose(doseKey, status) {
     if (!user) {
+      const entry = {
+        status,
+        updatedAt: new Date().toISOString(),
+        updatedFrom: MOBILE_CLIENT_NAME,
+      };
       setStatuses((current) => ({
         ...current,
-        [doseKey]: {
-          status,
-          updatedAt: new Date().toISOString(),
-          updatedFrom: MOBILE_CLIENT_NAME,
+        [doseKey]: entry,
+      }));
+      setHistoryStatuses((current) => ({
+        ...current,
+        [dateKey]: {
+          ...(current[dateKey] || {}),
+          [doseKey]: entry,
         },
       }));
       return;
     }
     try {
       await saveDoseStatusRecord(user.uid, dateKey, doseKey, status);
+      setHistoryStatuses((current) => ({
+        ...current,
+        [dateKey]: {
+          ...(current[dateKey] || statuses),
+          [doseKey]: {
+            status,
+            updatedAt: new Date().toISOString(),
+            updatedBy: user.uid,
+            updatedFrom: MOBILE_CLIENT_NAME,
+          },
+        },
+      }));
       setError("");
     } catch (err) {
       logMobileError("Dose status save failed", err);
@@ -264,6 +322,8 @@ export function useMobileMedications() {
     dateKey,
     deleteMedication,
     error,
+    historyLoading,
+    historyStatuses,
     loading: !authReady || loadingMeds,
     markDose,
     medications,
