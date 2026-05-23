@@ -5,6 +5,7 @@ export const routes = {
   medicationForm: "medication-form",
   history: "history",
   reminders: "reminders",
+  privacy: "privacy",
 };
 
 export const navItems = [
@@ -12,4 +13,5 @@ export const navItems = [
   { route: routes.medications, label: "Meds", icon: "M" },
   { route: routes.history, label: "History", icon: "H" },
   { route: routes.reminders, label: "Reminders", icon: "R" },
+  { route: routes.privacy, label: "Privacy", icon: "P" },
 ];

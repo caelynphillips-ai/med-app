@@ -659,6 +659,11 @@ a {
   align-items: start;
 }
 
+.settings-layout {
+  display: grid;
+  gap: 16px;
+}
+
 .history-day-list,
 .missed-dose-list {
   display: grid;
@@ -1179,7 +1184,7 @@ fieldset.field {
 
   .nav-rail {
     position: static;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
   }
 
   .nav-button {

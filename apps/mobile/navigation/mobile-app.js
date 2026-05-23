@@ -7,6 +7,7 @@ import { HistoryScreen } from "../screens/history-screen.js";
 import { MedicationDetailScreen } from "../screens/medication-detail-screen.js";
 import { MedicationFormScreen } from "../screens/medication-form-screen.js";
 import { MedicationsScreen } from "../screens/medications-screen.js";
+import { PrivacyScreen } from "../screens/privacy-screen.js";
 import { RemindersScreen } from "../screens/reminders-screen.js";
 import { TodayScreen } from "../screens/today-screen.js";
 import { colors } from "../theme/tokens.js";
@@ -83,6 +84,18 @@ function renderRoute(route, mobile, selectedMedication, navigate) {
         historyLoading={mobile.historyLoading}
         historyStatuses={mobile.historyStatuses}
         medications={mobile.medications}
+      />
+    );
+  }
+
+  if (route.route === routes.privacy) {
+    return (
+      <PrivacyScreen
+        busy={mobile.busy}
+        historyStatuses={mobile.historyStatuses}
+        medications={mobile.medications}
+        onSignOut={mobile.signOut}
+        user={mobile.user}
       />
     );
   }

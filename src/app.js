@@ -45,6 +45,12 @@ import {
   formatHistoryDateLabel,
   getRecentDateKeys,
 } from "../shared/adherence.js";
+import {
+  buildMedicationDataExport,
+  buildMedicationExportJson,
+  buildMedicationListTextExport,
+  exportFileName,
+} from "../shared/dataExport.js";
 import { doseKey, normalizedSchedule, scheduleMapForForm, statusLabel } from "./utils/schedule.js";
 import { cleanText, escapeAttribute, escapeHtml, initialsForUser, normalizeSearch, titleCase } from "./utils/text.js";
 const root = document.querySelector("#app");
@@ -196,6 +202,14 @@ root.addEventListener("click", async (event) => {
 
   if (action === "clear-medication-list-filters") {
     resetMedicationListControls();
+  }
+
+  if (action === "export-data-json") {
+    await exportAccountData("json");
+  }
+
+  if (action === "export-medication-text") {
+    await exportAccountData("text");
   }
 });
 
@@ -495,6 +509,62 @@ async function markDose(doseKey, status) {
   }
 }
 
+async function exportAccountData(format) {
+  if (!state.user) {
+    showToast("Please sign in before exporting data.", "error");
+    return;
+  }
+
+  setBusy(true);
+  try {
+    const generatedAt = new Date().toISOString();
+    const dateKeys = getRecentDateKeys(7);
+    const records = await getDoseStatusHistoryRecords(state.user.uid, dateKeys);
+    const todayStatuses = Object.keys(state.statuses).length ? state.statuses : records[todayKey()] || {};
+    const history = {
+      ...records,
+      [todayKey()]: todayStatuses,
+    };
+    state.historyStatuses = history;
+
+    if (format === "text") {
+      downloadTextFile(
+        exportFileName("med-organizer-medication-list", "txt"),
+        buildMedicationListTextExport({ generatedAt, medications: state.meds }),
+        "text/plain",
+      );
+      showToast("Medication list export downloaded.");
+      return;
+    }
+
+    const exportData = buildMedicationDataExport({
+      doseStatusHistory: history,
+      generatedAt,
+      medications: state.meds,
+      source: "web",
+      user: state.user,
+    });
+    downloadTextFile(exportFileName("med-organizer-data", "json"), buildMedicationExportJson(exportData), "application/json");
+    showToast("Data export downloaded.");
+  } catch (error) {
+    showToast(messageFromError(error), "error");
+  } finally {
+    setBusy(false);
+  }
+}
+
+function downloadTextFile(fileName, content, type) {
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
 function setView(view) {
   state.view = view;
   localStorage.setItem("medOrganizerView", view);
@@ -666,6 +736,7 @@ function renderNavigation() {
     { view: "medications", label: "Medications", icon: "M" },
     { view: "history", label: "History", icon: "H" },
     { view: "reminders", label: "Reminders", icon: "R" },
+    { view: "privacy", label: "Privacy", icon: "P" },
   ];
   return `
     <nav class="nav-rail" aria-label="Main navigation">
@@ -694,6 +765,10 @@ function renderActiveView() {
 
   if (state.view === "history") {
     return renderHistory();
+  }
+
+  if (state.view === "privacy") {
+    return renderPrivacy();
   }
 
   if (state.view === "add") {
@@ -847,6 +922,60 @@ function renderHistory() {
             </div>
           `
       }
+    </section>
+  `;
+}
+
+function renderPrivacy() {
+  const userLabel = state.user?.email || state.user?.displayName || "Signed in";
+  return `
+    <section class="page">
+      <div class="page-header">
+        <div>
+          <p class="eyebrow">Account and privacy</p>
+          <h2 class="page-title">Privacy</h2>
+        </div>
+        <button class="button text" type="button" data-action="sign-out" ${state.busy ? "disabled" : ""}>Sign out</button>
+      </div>
+
+      <div class="settings-layout">
+        <article class="card">
+          <h3 class="section-title">Medical disclaimer</h3>
+          <p class="subtle">This app is for personal organization only and does not provide medical advice. Confirm medication details with the prescription label, doctor, or pharmacist.</p>
+        </article>
+
+        <article class="card">
+          <h3 class="section-title">How your data is stored</h3>
+          <div class="reminder-list" style="margin-top: 12px;">
+            <div class="detail-item">
+              <span>Account</span>
+              <strong>${escapeHtml(userLabel)}</strong>
+            </div>
+            <div class="detail-item">
+              <span>Storage</span>
+              <strong>Medication records and dose statuses are saved in Firebase for your signed-in account.</strong>
+            </div>
+            <div class="detail-item">
+              <span>Attachments</span>
+              <strong>Label photos or files are saved in Firebase Storage. Exports include attachment metadata, not the actual files.</strong>
+            </div>
+          </div>
+        </article>
+
+        <article class="card">
+          <h3 class="section-title">Export data</h3>
+          <p class="subtle">Download your medications, schedules, notes, instructions, refill tracking, reminder settings, attachment metadata, and the last 7 days of dose status history.</p>
+          <div class="toolbar" style="margin-top: 14px;">
+            <button class="button primary" type="button" data-action="export-data-json" ${state.busy ? "disabled" : ""}>Export JSON</button>
+            <button class="button tonal" type="button" data-action="export-medication-text" ${state.busy ? "disabled" : ""}>Export readable list</button>
+          </div>
+        </article>
+
+        <article class="notice">
+          <strong>Export note</strong>
+          <span>The readable list is a medication summary only. Use JSON when you want the fuller account data export.</span>
+        </article>
+      </div>
     </section>
   `;
 }
