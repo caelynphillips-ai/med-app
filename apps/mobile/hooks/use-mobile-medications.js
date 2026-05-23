@@ -171,6 +171,10 @@ export function useMobileMedications() {
       intake: medication.intake || "water",
       foodInstructions: medication.foodInstructions || "",
       notes: medication.notes || "",
+      quantityRemaining: medication.quantityRemaining ?? null,
+      refillThreshold: medication.refillThreshold ?? null,
+      refillReminderEnabled: Boolean(medication.refillReminderEnabled),
+      lastRefillDate: medication.lastRefillDate || "",
       reminder: medication.reminder || { enabled: false, leadMinutes: 15 },
       updatedBy: user.uid,
       updatedFrom: MOBILE_CLIENT_NAME,
@@ -186,7 +190,7 @@ export function useMobileMedications() {
             ...payload,
             id: savedId,
           },
-          { requestPermissions: Boolean(payload.reminder?.enabled) },
+          { requestPermissions: Boolean(payload.reminder?.enabled || payload.refillReminderEnabled) },
         );
         setError("");
       } catch (err) {

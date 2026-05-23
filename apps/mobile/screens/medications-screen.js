@@ -1,6 +1,7 @@
 import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { categoryLabels } from "../../../shared/medicationSchema.js";
+import { getRefillInfo, refillStatusLabel } from "../../../shared/refill.js";
 import { normalizedSchedule } from "../../../shared/schedule.js";
 import { formatClock } from "../../../shared/dateTime.js";
 import { ActionButton } from "../components/action-button.js";
@@ -49,6 +50,7 @@ function MedicationCard({ medication, onPress }) {
   const schedule = normalizedSchedule(medication)
     .map((slot) => `${slot.label} ${formatClock(slot.time)}`)
     .join(", ");
+  const refillInfo = getRefillInfo(medication);
 
   return (
     <Pressable accessibilityRole="button" onPress={onPress} style={({ pressed }) => [styles.card, pressed && styles.pressed]}>
@@ -68,6 +70,11 @@ function MedicationCard({ medication, onPress }) {
       <Text selectable style={styles.schedule}>
         {schedule}
       </Text>
+      {refillInfo.isTracking ? (
+        <View style={[styles.refillPill, refillInfo.isLowSupply && styles.refillPillLow]}>
+          <Text style={styles.refillPillText}>{refillStatusLabel(medication)}</Text>
+        </View>
+      ) : null}
     </Pressable>
   );
 }
@@ -144,6 +151,22 @@ const styles = StyleSheet.create({
   },
   pressed: {
     opacity: 0.78,
+  },
+  refillPill: {
+    alignSelf: "flex-start",
+    backgroundColor: colors.light,
+    borderCurve: "continuous",
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+  },
+  refillPillLow: {
+    backgroundColor: colors.alert,
+  },
+  refillPillText: {
+    color: colors.text,
+    fontSize: typography.label,
+    fontWeight: "900",
   },
   schedule: {
     color: colors.text,

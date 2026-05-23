@@ -21,6 +21,13 @@ import { commonUseLabel, commonUseValue, parseCommonUses } from "./utils/commonU
 import { currentMinutes, formatClock, formatMinutes, fullDateLabel, minutesFromTime, todayKey } from "./utils/dateTime.js";
 import { messageFromError } from "./utils/errors.js";
 import { intakeFromFoodInstructions } from "./utils/medicationFields.js";
+import {
+  getRefillInfo,
+  refillQuantityLabel,
+  refillStatusLabel,
+  refillThresholdLabel,
+  normalizeRefillNumber,
+} from "../shared/refill.js";
 import { doseKey, normalizedSchedule, scheduleMapForForm, statusLabel } from "./utils/schedule.js";
 import { cleanText, escapeAttribute, escapeHtml, initialsForUser, normalizeSearch, titleCase } from "./utils/text.js";
 const root = document.querySelector("#app");
@@ -297,6 +304,8 @@ async function saveMedication(form) {
   }
 
   const timesPerDay = Number(formData.get("timesPerDay")) || selectedSchedule.length;
+  const quantityRemaining = normalizeRefillNumber(formData.get("quantityRemaining"));
+  const refillThreshold = normalizeRefillNumber(formData.get("refillThreshold"));
   const payload = {
     schemaVersion: MEDICATION_SCHEMA_VERSION,
     name: cleanText(formData.get("name")),
@@ -309,6 +318,10 @@ async function saveMedication(form) {
     intake: formData.get("intake"),
     foodInstructions: cleanText(formData.get("foodInstructions")),
     notes: cleanText(formData.get("notes")),
+    quantityRemaining,
+    refillThreshold,
+    refillReminderEnabled: formData.get("refillReminderEnabled") === "on",
+    lastRefillDate: cleanText(formData.get("lastRefillDate")),
     reminder: {
       enabled: formData.get("reminderEnabled") === "on",
       leadMinutes: Number(formData.get("leadMinutes")) || 15,
@@ -320,6 +333,11 @@ async function saveMedication(form) {
 
   if (!payload.name || !payload.purpose || !payload.dosage) {
     showToast("Name, purpose, and dosage are required.", "error");
+    return;
+  }
+
+  if (payload.refillReminderEnabled && (quantityRemaining === null || refillThreshold === null)) {
+    showToast("Add quantity remaining and a low supply threshold to turn on refill reminders.", "error");
     return;
   }
 
@@ -726,6 +744,7 @@ function renderMedicationCard(med) {
   const times = normalizedSchedule(med)
     .map((slot) => `${slot.label} ${formatClock(slot.time)}`)
     .join(", ");
+  const refillInfo = getRefillInfo(med);
   return `
     <article class="card med-card">
       <div class="med-card-footer">
@@ -743,6 +762,11 @@ function renderMedicationCard(med) {
       <p class="subtle">${escapeHtml(times || "No schedule times")}</p>
       <div class="med-card-footer">
         <span class="status-pill ${med.reminder?.enabled ? "taken" : ""}">${med.reminder?.enabled ? "Reminder on" : "Reminder off"}</span>
+        ${
+          refillInfo.isTracking
+            ? `<span class="status-pill ${refillInfo.isLowSupply ? "missed" : "skipped"}">${escapeHtml(refillStatusLabel(med))}</span>`
+            : ""
+        }
         <button class="button tonal" type="button" data-action="view-medication" data-id="${escapeHtml(med.id)}">Details</button>
       </div>
     </article>
@@ -751,6 +775,7 @@ function renderMedicationCard(med) {
 
 function renderMedicationDetail(med) {
   const schedule = normalizedSchedule(med);
+  const refillInfo = getRefillInfo(med);
   return `
     <section class="page">
       <div class="page-header">
@@ -790,6 +815,26 @@ function renderMedicationDetail(med) {
             <div class="detail-item">
               <span>Reminder</span>
               <strong>${med.reminder?.enabled ? `${Number(med.reminder.leadMinutes) || 15} minutes before` : "Off"}</strong>
+            </div>
+            <div class="detail-item">
+              <span>Estimated supply</span>
+              <strong>${escapeHtml(refillStatusLabel(med))}</strong>
+            </div>
+            <div class="detail-item">
+              <span>Quantity remaining</span>
+              <strong>${escapeHtml(refillQuantityLabel(refillInfo.quantityRemaining))}</strong>
+            </div>
+            <div class="detail-item">
+              <span>Low supply threshold</span>
+              <strong>${escapeHtml(refillThresholdLabel(refillInfo.refillThreshold))}</strong>
+            </div>
+            <div class="detail-item">
+              <span>Refill reminder</span>
+              <strong>${refillInfo.refillReminderEnabled ? "On" : "Off"}</strong>
+            </div>
+            <div class="detail-item">
+              <span>Last refill</span>
+              <strong>${escapeHtml(refillInfo.lastRefillDate || "Not set")}</strong>
             </div>
           </div>
           <div class="detail-item">
@@ -961,6 +1006,49 @@ function renderMedicationForm(med = null) {
             <input type="checkbox" name="reminderEnabled" ${med?.reminder?.enabled ? "checked" : ""} />
             Show reminder-style cards in the app
           </label>
+          <fieldset class="field full">
+            <legend class="fieldset-label">Refill tracking</legend>
+            <div class="form-grid compact-grid">
+              <div class="field">
+                <label for="quantityRemaining">Quantity remaining</label>
+                <input
+                  id="quantityRemaining"
+                  name="quantityRemaining"
+                  type="number"
+                  min="0"
+                  step="0.5"
+                  value="${escapeAttribute(med?.quantityRemaining ?? "")}"
+                  placeholder="e.g. 14"
+                />
+              </div>
+              <div class="field">
+                <label for="refillThreshold">Low supply threshold</label>
+                <input
+                  id="refillThreshold"
+                  name="refillThreshold"
+                  type="number"
+                  min="0"
+                  step="0.5"
+                  value="${escapeAttribute(med?.refillThreshold ?? "")}"
+                  placeholder="e.g. 7"
+                />
+              </div>
+              <div class="field">
+                <label for="lastRefillDate">Last refill date</label>
+                <input
+                  id="lastRefillDate"
+                  name="lastRefillDate"
+                  type="date"
+                  value="${escapeAttribute(med?.lastRefillDate || "")}"
+                />
+              </div>
+              <label class="checkbox-row field">
+                <input type="checkbox" name="refillReminderEnabled" ${med?.refillReminderEnabled ? "checked" : ""} />
+                Remind me when supply is low
+              </label>
+            </div>
+            <span class="helper">Optional. Use the same unit you count at home, such as tablets, capsules, patches, or doses.</span>
+          </fieldset>
           <div class="field full">
             <label for="notes">Notes</label>
             <textarea id="notes" name="notes" placeholder="Side effects, doctor instructions, refill info, or reminders">${escapeHtml(med?.notes || "")}</textarea>

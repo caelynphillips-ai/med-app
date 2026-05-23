@@ -36,6 +36,10 @@ export interface Medication {
   intake: IntakeInstruction;
   foodInstructions?: string | null;
   notes?: string | null;
+  quantityRemaining?: number | null;
+  refillThreshold?: number | null;
+  refillReminderEnabled?: boolean | null;
+  lastRefillDate?: string | null;
   reminder: MedicationReminder;
   attachment?: MedicationAttachment | null;
   updatedBy?: string | null;

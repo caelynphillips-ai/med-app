@@ -666,6 +666,10 @@ button.detail-item {
   gap: 14px;
 }
 
+.compact-grid {
+  grid-template-columns: repeat(2, minmax(180px, 1fr));
+}
+
 .top-form-stack {
   display: grid;
   width: min(100%, 720px);

@@ -8,6 +8,7 @@ import {
   medicationCategories,
 } from "../../../shared/medicationSchema.js";
 import { commonUseLabel, commonUseValue, parseCommonUses } from "../../../shared/commonUses.js";
+import { normalizeRefillNumber } from "../../../shared/refill.js";
 import { normalizedSchedule } from "../../../shared/schedule.js";
 import { normalizeCategory } from "../../../shared/rxterms.js";
 import { ActionButton } from "../components/action-button.js";
@@ -169,6 +170,12 @@ export function MedicationFormScreen({ medication, onNavigate, onSave }) {
       setError("Add a dosage from the label or type your own.");
       return;
     }
+    const quantityRemaining = normalizeRefillNumber(form.quantityRemaining);
+    const refillThreshold = normalizeRefillNumber(form.refillThreshold);
+    if (form.refillReminderEnabled && (quantityRemaining === null || refillThreshold === null)) {
+      setError("Add quantity remaining and a low supply threshold to turn on refill reminders.");
+      return;
+    }
 
     const selectedSchedule = defaultScheduleSlots
       .filter((slot) => schedule[slot.id]?.checked)
@@ -193,6 +200,10 @@ export function MedicationFormScreen({ medication, onNavigate, onSave }) {
         intake: form.intake,
         foodInstructions: form.foodInstructions.trim(),
         notes: form.notes.trim(),
+        quantityRemaining,
+        refillThreshold,
+        refillReminderEnabled: form.refillReminderEnabled,
+        lastRefillDate: form.lastRefillDate.trim(),
         reminder: {
           enabled: form.reminderEnabled,
           leadMinutes: Number(form.reminderLeadMinutes) || 15,
@@ -397,6 +408,52 @@ export function MedicationFormScreen({ medication, onNavigate, onSave }) {
           />
         </View>
 
+        <Field label="Refill tracking">
+          <View style={styles.row}>
+            <Field label="Quantity remaining" style={styles.rowField}>
+              <TextInput
+                keyboardType="decimal-pad"
+                onChangeText={(value) => updateField("quantityRemaining", value)}
+                placeholder="e.g. 14"
+                placeholderTextColor={colors.mutedText}
+                style={styles.input}
+                value={String(form.quantityRemaining)}
+              />
+            </Field>
+            <Field label="Low supply threshold" style={styles.rowField}>
+              <TextInput
+                keyboardType="decimal-pad"
+                onChangeText={(value) => updateField("refillThreshold", value)}
+                placeholder="e.g. 7"
+                placeholderTextColor={colors.mutedText}
+                style={styles.input}
+                value={String(form.refillThreshold)}
+              />
+            </Field>
+          </View>
+          <Field label="Last refill date">
+            <TextInput
+              onChangeText={(value) => updateField("lastRefillDate", value)}
+              placeholder="YYYY-MM-DD"
+              placeholderTextColor={colors.mutedText}
+              style={styles.input}
+              value={form.lastRefillDate}
+            />
+          </Field>
+          <View style={styles.switchRow}>
+            <View style={styles.switchText}>
+              <Text style={styles.switchTitle}>Remind me when supply is low</Text>
+              <Text style={styles.switchCopy}>Use the same unit you count at home, such as tablets, capsules, patches, or doses.</Text>
+            </View>
+            <Switch
+              onValueChange={(value) => updateField("refillReminderEnabled", value)}
+              trackColor={{ false: colors.border, true: colors.accent }}
+              thumbColor={colors.white}
+              value={form.refillReminderEnabled}
+            />
+          </View>
+        </Field>
+
         <Field label="Additional notes">
           <TextInput
             multiline
@@ -442,6 +499,10 @@ function formFromMedication(medication) {
     intake: medication?.intake || "water",
     foodInstructions: medication?.foodInstructions || "",
     notes: medication?.notes || "",
+    quantityRemaining: medication?.quantityRemaining ?? "",
+    refillThreshold: medication?.refillThreshold ?? "",
+    refillReminderEnabled: Boolean(medication?.refillReminderEnabled),
+    lastRefillDate: medication?.lastRefillDate || "",
     reminderEnabled: Boolean(medication?.reminder?.enabled),
     reminderLeadMinutes: String(medication?.reminder?.leadMinutes || 15),
   };

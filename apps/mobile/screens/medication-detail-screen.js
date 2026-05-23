@@ -1,6 +1,7 @@
 import React from "react";
 import { Alert, StyleSheet, Text, View } from "react-native";
 import { categoryLabels, intakeLabels } from "../../../shared/medicationSchema.js";
+import { getRefillInfo, refillQuantityLabel, refillStatusLabel, refillThresholdLabel } from "../../../shared/refill.js";
 import { normalizedSchedule } from "../../../shared/schedule.js";
 import { formatClock } from "../../../shared/dateTime.js";
 import { ActionButton } from "../components/action-button.js";
@@ -9,6 +10,7 @@ import { routes } from "../navigation/routes.js";
 
 export function MedicationDetailScreen({ medication, onDelete, onNavigate }) {
   const [deleting, setDeleting] = React.useState(false);
+  const refillInfo = getRefillInfo(medication);
 
   if (!medication) {
     return (
@@ -97,6 +99,17 @@ export function MedicationDetailScreen({ medication, onDelete, onNavigate }) {
           value={medication.reminder?.enabled ? `${medication.reminder.leadMinutes || 15} minutes before` : "Off"}
         />
         <InfoBlock label="Attachment" value={medication.attachment?.name || "No label photo or instruction file uploaded yet."} />
+      </View>
+
+      <View style={styles.card}>
+        <Text selectable style={styles.cardTitle}>
+          Refill tracking
+        </Text>
+        <InfoBlock label="Estimated supply" value={refillStatusLabel(medication)} />
+        <InfoBlock label="Quantity remaining" value={refillQuantityLabel(refillInfo.quantityRemaining)} />
+        <InfoBlock label="Low supply threshold" value={refillThresholdLabel(refillInfo.refillThreshold)} />
+        <InfoBlock label="Refill reminder" value={refillInfo.refillReminderEnabled ? "On" : "Off"} />
+        <InfoBlock label="Last refill" value={refillInfo.lastRefillDate || "Not set"} wide />
       </View>
     </View>
   );

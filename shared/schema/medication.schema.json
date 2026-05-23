@@ -33,6 +33,10 @@
     "intake": { "type": "string", "enum": ["food", "water", "empty"] },
     "foodInstructions": { "type": ["string", "null"] },
     "notes": { "type": ["string", "null"] },
+    "quantityRemaining": { "type": ["number", "null"], "minimum": 0 },
+    "refillThreshold": { "type": ["number", "null"], "minimum": 0 },
+    "refillReminderEnabled": { "type": ["boolean", "null"] },
+    "lastRefillDate": { "type": ["string", "null"] },
     "reminder": {
       "type": "object",
       "required": ["enabled", "leadMinutes"],

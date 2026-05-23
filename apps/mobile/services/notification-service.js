@@ -2,6 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
 import { formatClock, formatMinutes, minutesFromTime } from "../../../shared/dateTime.js";
+import { formatRefillNumber, getRefillInfo } from "../../../shared/refill.js";
 import { normalizedSchedule } from "../../../shared/schedule.js";
 
 const TRACKED_NOTIFICATIONS_KEY = "med-organizer:tracked-notifications:v1";
@@ -117,9 +118,14 @@ export async function rescheduleMedicationNotifications(medication, { requestPer
 
   const notifications = [];
   try {
-    for (const slot of normalizedSchedule(medication)) {
-      const notification = await scheduleMedicationSlotNotification(medication, slot);
-      notifications.push(notification);
+    if (medication.reminder?.enabled) {
+      for (const slot of normalizedSchedule(medication)) {
+        const notification = await scheduleMedicationSlotNotification(medication, slot);
+        notifications.push(notification);
+      }
+    }
+    if (getRefillInfo(medication).reminderEligible) {
+      notifications.push(await scheduleMedicationRefillNotification(medication));
     }
   } catch (error) {
     await cancelTrackedEntries(notifications);
@@ -213,7 +219,11 @@ async function scheduleMedicationSlotNotification(medication, slot) {
 }
 
 function shouldScheduleMedication(medication) {
-  return Boolean(medication?.id && medication?.reminder?.enabled && normalizedSchedule(medication).length);
+  return Boolean(
+    medication?.id &&
+      ((medication?.reminder?.enabled && normalizedSchedule(medication).length) ||
+        getRefillInfo(medication).reminderEligible),
+  );
 }
 
 function notificationBody(medication, slot, reminderMinutes) {
@@ -225,10 +235,14 @@ function notificationBody(medication, slot, reminderMinutes) {
 }
 
 function notificationSignature(medication) {
+  const refillInfo = getRefillInfo(medication);
   return JSON.stringify({
     dosage: medication.dosage || "",
     leadMinutes: normalizedLeadMinutes(medication.reminder?.leadMinutes),
     name: medication.name || "",
+    quantityRemaining: refillInfo.quantityRemaining,
+    refillReminderEnabled: refillInfo.refillReminderEnabled,
+    refillThreshold: refillInfo.refillThreshold,
     reminderEnabled: Boolean(medication.reminder?.enabled),
     schedule: normalizedSchedule(medication).map((slot) => ({
       id: slot.id,
@@ -236,6 +250,62 @@ function notificationSignature(medication) {
       time: slot.time,
     })),
   });
+}
+
+async function scheduleMedicationRefillNotification(medication) {
+  const refillInfo = getRefillInfo(medication);
+  const identifier = await Notifications.scheduleNotificationAsync({
+    content: {
+      autoDismiss: true,
+      body: refillNotificationBody(medication, refillInfo),
+      color: "#7A9D8E",
+      data: {
+        kind: "medication-refill-reminder",
+        medicationId: medication.id,
+      },
+      priority: Notifications.AndroidNotificationPriority.DEFAULT,
+      sound: false,
+      title: "Refill reminder",
+    },
+    trigger: refillNotificationTrigger(refillInfo),
+  });
+
+  return {
+    identifier,
+    reminderTime: refillInfo.isLowSupply ? "Daily at 9:00 AM" : refillReminderDate(refillInfo).toISOString(),
+    type: "refill",
+  };
+}
+
+function refillNotificationBody(medication, refillInfo) {
+  if (refillInfo.isLowSupply) {
+    return `${medication.name} is at ${formatRefillNumber(refillInfo.quantityRemaining)} remaining. Refill soon so you do not run out.`;
+  }
+  return `${medication.name} may reach ${formatRefillNumber(refillInfo.refillThreshold)} remaining soon. Check your supply and refill if needed.`;
+}
+
+function refillNotificationTrigger(refillInfo) {
+  if (refillInfo.isLowSupply) {
+    return {
+      channelId: MEDICATION_REMINDER_CHANNEL_ID,
+      hour: 9,
+      minute: 0,
+      type: "daily",
+    };
+  }
+
+  return {
+    channelId: MEDICATION_REMINDER_CHANNEL_ID,
+    date: refillReminderDate(refillInfo),
+    type: "date",
+  };
+}
+
+function refillReminderDate(refillInfo) {
+  const date = new Date();
+  date.setDate(date.getDate() + Math.max(1, refillInfo.daysUntilThreshold || 1));
+  date.setHours(9, 0, 0, 0);
+  return date;
 }
 
 function normalizedLeadMinutes(value) {
