@@ -1,5 +1,5 @@
 import React from "react";
-import { Share, StyleSheet, Text, View } from "react-native";
+import { Alert, Share, StyleSheet, Text, View } from "react-native";
 import { medicalDisclaimer } from "../../../shared/medicationSchema.js";
 import {
   buildMedicationDataExport,
@@ -7,34 +7,42 @@ import {
   buildMedicationListTextExport,
 } from "../../../shared/dataExport.js";
 import { ActionButton } from "../components/action-button.js";
+import { describeMobileError, logMobileError } from "../services/mobile-error.js";
 import { colors, radius, shadows, spacing, typography } from "../theme/tokens.js";
 
 export function PrivacyScreen({ busy, historyStatuses, medications, onSignOut, user }) {
   const [exporting, setExporting] = React.useState(false);
+  const [exportError, setExportError] = React.useState("");
   const isPreviewSession = Boolean(user?.isAnonymous);
   const disabled = busy || exporting;
 
   async function shareExport(format) {
-    const generatedAt = new Date().toISOString();
-    const message =
-      format === "text"
-        ? buildMedicationListTextExport({ generatedAt, medications })
-        : buildMedicationExportJson(
-            buildMedicationDataExport({
-              doseStatusHistory: historyStatuses,
-              generatedAt,
-              medications,
-              source: "expo-mobile",
-              user,
-            }),
-          );
-
     setExporting(true);
+    setExportError("");
     try {
+      const generatedAt = new Date().toISOString();
+      const message =
+        format === "text"
+          ? buildMedicationListTextExport({ generatedAt, medications })
+          : buildMedicationExportJson(
+              buildMedicationDataExport({
+                doseStatusHistory: historyStatuses,
+                generatedAt,
+                medications,
+                source: "expo-mobile",
+                user,
+              }),
+            );
+
       await Share.share({
         message,
         title: format === "text" ? "Med Organizer medication list" : "Med Organizer data export",
       });
+    } catch (error) {
+      logMobileError("Data export share failed", error);
+      const messageText = describeMobileError(error, "Exporting data");
+      setExportError(messageText);
+      Alert.alert("Export data", messageText);
     } finally {
       setExporting(false);
     }
@@ -80,12 +88,17 @@ export function PrivacyScreen({ busy, historyStatuses, medications, onSignOut, u
         </Text>
         <View style={styles.buttonRow}>
           <ActionButton disabled={disabled} onPress={() => shareExport("json")}>
-            Export JSON
+            {exporting ? "Preparing..." : "Export JSON"}
           </ActionButton>
           <ActionButton disabled={disabled} tone="quiet" onPress={() => shareExport("text")}>
             Readable list
           </ActionButton>
         </View>
+        {exportError ? (
+          <Text selectable style={styles.errorText}>
+            {exportError}
+          </Text>
+        ) : null}
       </View>
 
       <View style={styles.card}>
@@ -94,6 +107,16 @@ export function PrivacyScreen({ busy, historyStatuses, medications, onSignOut, u
         </Text>
         <Text selectable style={styles.body}>
           Preview mode uses a temporary anonymous Firebase account on this device. It does not sync with a real Google account until native Google sign-in is configured.
+        </Text>
+      </View>
+
+      {/* TODO: Replace this copy with a reauthenticated, irreversible account deletion flow before public launch. */}
+      <View style={styles.card}>
+        <Text selectable style={styles.cardTitle}>
+          Account deletion
+        </Text>
+        <Text selectable style={styles.body}>
+          Secure account deletion is not active yet. Before public launch, this flow should remove the signed-in user's medications, dose statuses, app settings, and Storage attachments after a clear confirmation step.
         </Text>
       </View>
 
@@ -159,6 +182,12 @@ const styles = StyleSheet.create({
     fontSize: typography.label,
     fontWeight: "900",
     letterSpacing: 0,
+  },
+  errorText: {
+    color: colors.text,
+    fontSize: typography.small,
+    fontWeight: "800",
+    lineHeight: 18,
   },
   infoLabel: {
     color: colors.text,

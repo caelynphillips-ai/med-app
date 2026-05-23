@@ -1,9 +1,10 @@
 # Med Organizer
 
-A Firebase-backed medication, vitamin, and supplement organizer with three client targets:
+A Firebase-backed medication, vitamin, and supplement organizer with four client targets:
 
 - Browser web app
 - Electron desktop app
+- Expo mobile app
 - Native SwiftUI iOS app source
 
 All clients use the same Firebase Authentication, Firestore, Firebase Storage, medication suggestion data shape, and user-owned document paths.
@@ -55,6 +56,7 @@ Firestore paths:
 ```text
 users/{uid}/medications/{medicationId}
 users/{uid}/doseStatus/{yyyy-mm-dd}
+users/{uid}/appMeta/settings
 ```
 
 Storage path:
@@ -66,6 +68,8 @@ users/{uid}/medications/{medicationId}/{timestamp}-{filename}
 ## Team Runbook
 
 See `TEAM_RUNBOOK.md` for platform setup, cross-client testing, and release notes.
+
+See `PRODUCTION_READINESS.md` for Firebase rules, auth status, notification limits, account deletion planning, and launch blockers.
 
 ## Firebase Features Used
 

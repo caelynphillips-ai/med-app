@@ -2,8 +2,87 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /users/{userId}/{document=**} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
+    function validClientName(value) {
+      return value in ["web", "desktop", "ios"];
+    }
+
+    function validMedicationRecord(userId) {
+      return request.resource.data.keys().hasOnly([
+        "attachment",
+        "category",
+        "createdAt",
+        "dosage",
+        "foodInstructions",
+        "genericName",
+        "intake",
+        "isSample",
+        "lastRefillDate",
+        "name",
+        "notes",
+        "ownerId",
+        "purpose",
+        "quantityRemaining",
+        "refillReminderEnabled",
+        "refillThreshold",
+        "reminder",
+        "schedule",
+        "schemaVersion",
+        "timesPerDay",
+        "updatedAt",
+        "updatedBy",
+        "updatedFrom"
+      ])
+      && (!("ownerId" in request.resource.data) || request.resource.data.ownerId == userId)
+      && (!("updatedBy" in request.resource.data) || request.resource.data.updatedBy == userId)
+      && (!("updatedFrom" in request.resource.data) || validClientName(request.resource.data.updatedFrom))
+      && (!("category" in request.resource.data) || request.resource.data.category in ["prescription", "over-the-counter", "vitamin", "supplement"])
+      && (!("intake" in request.resource.data) || request.resource.data.intake in ["food", "water", "empty"]);
+    }
+
+    function validDoseStatusRecord(userId) {
+      return request.resource.data.keys().hasOnly([
+        "statuses",
+        "updatedAt",
+        "updatedBy",
+        "updatedFrom"
+      ])
+      && (!("updatedBy" in request.resource.data) || request.resource.data.updatedBy == userId)
+      && (!("updatedFrom" in request.resource.data) || validClientName(request.resource.data.updatedFrom));
+    }
+
+    function validSettingsRecord() {
+      return request.resource.data.keys().hasOnly([
+        "displayName",
+        "sampleSeeded",
+        "sampleSeededAt"
+      ]);
+    }
+
+    match /users/{userId} {
+      allow read, write: if false;
+
+      match /medications/{medicationId} {
+        allow read, delete: if isOwner(userId);
+        allow create, update: if isOwner(userId) && validMedicationRecord(userId);
+      }
+
+      match /doseStatus/{dateKey} {
+        allow read, delete: if isOwner(userId);
+        allow create, update: if isOwner(userId) && validDoseStatusRecord(userId);
+      }
+
+      match /appMeta/{documentId} {
+        allow read, delete: if isOwner(userId) && documentId == "settings";
+        allow create, update: if isOwner(userId) && documentId == "settings" && validSettingsRecord();
+      }
+
+      match /{document=**} {
+        allow read, write: if false;
+      }
     }
   }
 }

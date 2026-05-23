@@ -63,6 +63,7 @@ const state = {
   booting: true,
   loadingMeds: false,
   busy: false,
+  isOnline: navigator.onLine,
   view: localStorage.getItem("medOrganizerView") || "dashboard",
   selectedMedId: null,
   editMode: false,
@@ -124,6 +125,14 @@ observeAuthState(async (user) => {
 });
 
 window.addEventListener("beforeunload", cleanupSubscriptions);
+window.addEventListener("online", () => {
+  state.isOnline = true;
+  showToast("Connection restored.");
+});
+window.addEventListener("offline", () => {
+  state.isOnline = false;
+  showToast("You appear to be offline. Saved information will stay visible when available, but changes may not save until you reconnect.", "error");
+});
 
 root.addEventListener("click", async (event) => {
   const control = event.target.closest("[data-action]");
@@ -442,10 +451,19 @@ async function removeAttachment(medId) {
   }
 
   setBusy(true);
+  let attachmentDeleteFailed = false;
   try {
-    await deleteAttachmentPath(med.attachment.path).catch(() => {});
+    await deleteAttachmentPath(med.attachment.path).catch((error) => {
+      attachmentDeleteFailed = true;
+      console.warn("Attachment file delete failed.", error);
+    });
     await clearMedicationAttachment(state.user.uid, medId);
-    showToast("Attachment removed.");
+    showToast(
+      attachmentDeleteFailed
+        ? "Attachment was removed from the medication. The stored file could not be deleted right now."
+        : "Attachment removed.",
+      attachmentDeleteFailed ? "error" : "info",
+    );
   } catch (error) {
     showToast(messageFromError(error), "error");
   } finally {
@@ -465,15 +483,24 @@ async function deleteMedication(medId) {
   }
 
   setBusy(true);
+  let attachmentDeleteFailed = false;
   try {
     if (med.attachment?.path) {
-      await deleteAttachmentPath(med.attachment.path).catch(() => {});
+      await deleteAttachmentPath(med.attachment.path).catch((error) => {
+        attachmentDeleteFailed = true;
+        console.warn("Attachment file delete failed before medication delete.", error);
+      });
     }
     await deleteMedicationRecord(state.user.uid, medId);
     state.selectedMedId = null;
     state.editMode = false;
     setView("medications");
-    showToast("Medication deleted.");
+    showToast(
+      attachmentDeleteFailed
+        ? "Medication deleted. Its stored attachment could not be deleted right now."
+        : "Medication deleted.",
+      attachmentDeleteFailed ? "error" : "info",
+    );
   } catch (error) {
     showToast(messageFromError(error), "error");
   } finally {
@@ -629,8 +656,17 @@ function render() {
 
   root.innerHTML = `
     ${renderTopBar()}
+    ${state.isOnline ? "" : renderConnectionBanner()}
     ${state.user ? renderSignedInApp() : renderSignedOutApp()}
     ${state.toast ? `<div class="toast ${state.toastType === "error" ? "error" : ""}" role="status">${escapeHtml(state.toast)}</div>` : ""}
+  `;
+}
+
+function renderConnectionBanner() {
+  return `
+    <div class="connection-banner" role="status">
+      You appear to be offline. Your current organizer stays visible, but new changes may not save until the connection returns.
+    </div>
   `;
 }
 
@@ -991,6 +1027,12 @@ function renderPrivacy() {
         <article class="notice">
           <strong>Export note</strong>
           <span>The readable list is a medication summary only. Use JSON when you want the fuller account data export.</span>
+        </article>
+
+        <!-- TODO: Replace this copy with a reauthenticated, irreversible account deletion flow before public launch. -->
+        <article class="card">
+          <h3 class="section-title">Account deletion</h3>
+          <p class="subtle">Secure account deletion is not active yet. Before public launch, this flow should delete the signed-in user's medications, dose statuses, app settings, and Storage attachments after a clear confirmation step.</p>
         </article>
       </div>
     </section>

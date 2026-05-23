@@ -18,6 +18,18 @@ export function describeMobileError(error, action = "Action") {
     return `${action} needs an active Firebase session. Firebase returned ${code}: ${message}. Use Preview mode before saving or syncing medications.`;
   }
 
+  if (code === "unavailable" || code === "deadline-exceeded" || /network|offline|failed to fetch/i.test(message)) {
+    return `${action} could not reach Firebase. Your current screen will stay visible when possible; try again when the connection is back.`;
+  }
+
+  if (code === "storage/unauthorized") {
+    return `${action} was blocked by Firebase Storage. Confirm the Storage rules allow this account to access its own medication attachments.`;
+  }
+
+  if (code === "storage/quota-exceeded" || code === "resource-exhausted") {
+    return `${action} could not store the attachment right now. Try again later or use a smaller file.`;
+  }
+
   return `${action} failed: ${message}${code ? ` (${code})` : ""}`;
 }
 

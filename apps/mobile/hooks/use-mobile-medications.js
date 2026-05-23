@@ -249,16 +249,22 @@ export function useMobileMedications() {
       return;
     }
     const medication = medications.find((item) => item.id === medId);
+    let attachmentDeleteFailed = false;
     if (medication?.attachment?.path) {
       try {
         await deleteAttachmentPath(medication.attachment.path);
       } catch (err) {
-        console.warn("Attachment delete failed before medication delete.", err);
+        attachmentDeleteFailed = true;
+        logMobileError("Attachment delete failed before medication delete", err);
       }
     }
     try {
       await deleteMedicationRecord(user.uid, medId);
-      setError("");
+      setError(
+        attachmentDeleteFailed
+          ? "Medication deleted. Its stored attachment could not be deleted right now."
+          : "",
+      );
       try {
         await cancelMedicationNotifications(medId);
       } catch (err) {

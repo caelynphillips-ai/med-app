@@ -132,13 +132,18 @@ export async function rescheduleMedicationNotifications(medication, { requestPer
     throw error;
   }
 
-  const tracked = await readTrackedNotifications();
-  tracked[medication.id] = {
-    notifications,
-    signature: notificationSignature(medication),
-    updatedAt: new Date().toISOString(),
-  };
-  await writeTrackedNotifications(tracked);
+  try {
+    const tracked = await readTrackedNotifications();
+    tracked[medication.id] = {
+      notifications,
+      signature: notificationSignature(medication),
+      updatedAt: new Date().toISOString(),
+    };
+    await writeTrackedNotifications(tracked);
+  } catch (error) {
+    await cancelTrackedEntries(notifications);
+    throw error;
+  }
 
   return { scheduled: notifications.length, status: "scheduled" };
 }
@@ -353,7 +358,14 @@ async function readTrackedNotifications() {
 }
 
 async function writeTrackedNotifications(tracked) {
-  await AsyncStorage.setItem(TRACKED_NOTIFICATIONS_KEY, JSON.stringify(tracked || {}));
+  try {
+    await AsyncStorage.setItem(TRACKED_NOTIFICATIONS_KEY, JSON.stringify(tracked || {}));
+  } catch (error) {
+    const wrapped = new Error("Reminder tracking could not be saved on this device. The app canceled the newly scheduled reminders so they do not become orphaned.");
+    wrapped.code = "notifications/tracking-write-failed";
+    wrapped.cause = error;
+    throw wrapped;
+  }
 }
 
 function permissionError(permission) {

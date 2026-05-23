@@ -130,7 +130,7 @@ apps/ios/MedOrganizer/MedOrganizer
 On a Mac:
 
 1. Add an iOS app to Firebase project `med-test-7a252`.
-2. Use bundle id `com.medorganizer.ios`.
+2. Use bundle id `com.caelynphillips.medorganizer`.
 3. Download `GoogleService-Info.plist`.
 4. Put it at:
 
@@ -175,3 +175,5 @@ This app is for personal organization only and does not provide medical advice. 
 ## Important Limits
 
 The current backend rules are per-user. Team members can use any app version, but they do not share one medication list unless they sign into the same account. A true caregiver/team sharing feature should be a separate phase with roles, invitations, and stricter Firestore rules.
+
+See `PRODUCTION_READINESS.md` before public launch. Native mobile Google sign-in, irreversible account deletion, store metadata, and formal offline sync are still launch blockers.

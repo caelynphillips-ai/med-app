@@ -1120,6 +1120,18 @@ fieldset.field {
   color: var(--md-on-primary);
 }
 
+.connection-banner {
+  display: block;
+  padding: 10px 20px;
+  border-top: 1px solid rgba(201, 123, 99, 0.24);
+  border-bottom: 1px solid rgba(201, 123, 99, 0.24);
+  background: var(--md-error-container);
+  color: var(--md-on-surface);
+  font-size: 0.92rem;
+  font-weight: 800;
+  text-align: center;
+}
+
 .auth-page {
   display: grid;
   min-height: calc(100vh - 80px);
