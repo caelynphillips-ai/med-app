@@ -386,8 +386,8 @@ export function MedicationFormScreen({ medication, onNavigate, onSave }) {
 
         <View style={styles.switchRow}>
           <View style={styles.switchText}>
-            <Text style={styles.switchTitle}>Show reminder-style cards in the app</Text>
-            <Text style={styles.switchCopy}>This creates reminder cards without sending real notifications.</Text>
+            <Text style={styles.switchTitle}>Turn on dose reminders</Text>
+            <Text style={styles.switchCopy}>This shows reminder cards and, with permission, schedules calm phone reminders.</Text>
           </View>
           <Switch
             onValueChange={(value) => updateField("reminderEnabled", value)}

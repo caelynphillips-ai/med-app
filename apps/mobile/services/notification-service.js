@@ -1,0 +1,298 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Notifications from "expo-notifications";
+import { Platform } from "react-native";
+import { formatClock, formatMinutes, minutesFromTime } from "../../../shared/dateTime.js";
+import { normalizedSchedule } from "../../../shared/schedule.js";
+
+const TRACKED_NOTIFICATIONS_KEY = "med-organizer:tracked-notifications:v1";
+export const MEDICATION_REMINDER_CHANNEL_ID = "medication-reminders";
+
+if (isMedicationNotificationPlatform()) {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      priority: Notifications.AndroidNotificationPriority.DEFAULT,
+      shouldPlaySound: false,
+      shouldSetBadge: false,
+      shouldShowBanner: true,
+      shouldShowList: true,
+    }),
+  });
+}
+
+export function isMedicationNotificationPlatform() {
+  return Platform.OS === "android" || Platform.OS === "ios";
+}
+
+export function describeNotificationError(error, action = "Scheduling reminders") {
+  const code = error?.code || "";
+  const message = error?.message || String(error || "Something went wrong.");
+
+  if (code === "notifications/unsupported-platform") {
+    return `${action} is only available in the installed mobile app.`;
+  }
+
+  if (code === "notifications/permission-denied") {
+    return `${action} needs notification permission. ${message}`;
+  }
+
+  return `${action} failed: ${message}${code ? ` (${code})` : ""}`;
+}
+
+export async function initializeMedicationNotifications({ requestPermissions = false } = {}) {
+  if (!isMedicationNotificationPlatform()) {
+    return { granted: false, status: "unsupported", supported: false };
+  }
+
+  await configureAndroidReminderChannel();
+
+  let permission = await Notifications.getPermissionsAsync();
+  if (!permission.granted && requestPermissions && permission.canAskAgain !== false) {
+    permission = await Notifications.requestPermissionsAsync();
+  }
+
+  return {
+    granted: Boolean(permission.granted),
+    status: permission.status || "unknown",
+    supported: true,
+    canAskAgain: permission.canAskAgain !== false,
+  };
+}
+
+export async function syncMedicationNotifications(medications, { requestPermissions = false } = {}) {
+  if (!isMedicationNotificationPlatform()) {
+    return { scheduled: 0, status: "unsupported" };
+  }
+
+  const tracked = await readTrackedNotifications();
+  const medicationById = new Map((medications || []).filter((medication) => medication.id).map((medication) => [medication.id, medication]));
+  const enabledMedications = (medications || []).filter(shouldScheduleMedication);
+
+  for (const [medicationId, record] of Object.entries(tracked)) {
+    const medication = medicationById.get(medicationId);
+    if (!medication || !shouldScheduleMedication(medication)) {
+      await cancelTrackedEntries(record.notifications || []);
+      delete tracked[medicationId];
+    }
+  }
+  await writeTrackedNotifications(tracked);
+
+  if (!enabledMedications.length) {
+    return { scheduled: 0, status: "none" };
+  }
+
+  const permissions = await initializeMedicationNotifications({ requestPermissions });
+  if (!permissions.granted) {
+    return { scheduled: 0, status: permissions.status };
+  }
+
+  let scheduled = 0;
+  for (const medication of enabledMedications) {
+    const signature = notificationSignature(medication);
+    if (tracked[medication.id]?.signature === signature) {
+      scheduled += tracked[medication.id]?.notifications?.length || 0;
+      continue;
+    }
+    const result = await rescheduleMedicationNotifications(medication, { requestPermissions: false });
+    scheduled += result.scheduled || 0;
+  }
+
+  return { scheduled, status: "scheduled" };
+}
+
+export async function rescheduleMedicationNotifications(medication, { requestPermissions = true } = {}) {
+  if (!medication?.id) {
+    return { scheduled: 0, status: "missing-id" };
+  }
+
+  await cancelMedicationNotifications(medication.id);
+
+  if (!shouldScheduleMedication(medication)) {
+    return { scheduled: 0, status: "disabled" };
+  }
+
+  const permissions = await initializeMedicationNotifications({ requestPermissions });
+  if (!permissions.granted) {
+    throw permissionError(permissions);
+  }
+
+  const notifications = [];
+  try {
+    for (const slot of normalizedSchedule(medication)) {
+      const notification = await scheduleMedicationSlotNotification(medication, slot);
+      notifications.push(notification);
+    }
+  } catch (error) {
+    await cancelTrackedEntries(notifications);
+    throw error;
+  }
+
+  const tracked = await readTrackedNotifications();
+  tracked[medication.id] = {
+    notifications,
+    signature: notificationSignature(medication),
+    updatedAt: new Date().toISOString(),
+  };
+  await writeTrackedNotifications(tracked);
+
+  return { scheduled: notifications.length, status: "scheduled" };
+}
+
+export async function cancelMedicationNotifications(medicationOrId) {
+  const medicationId = typeof medicationOrId === "string" ? medicationOrId : medicationOrId?.id;
+  if (!medicationId || !isMedicationNotificationPlatform()) {
+    return;
+  }
+
+  const tracked = await readTrackedNotifications();
+  await cancelTrackedEntries(tracked[medicationId]?.notifications || []);
+  delete tracked[medicationId];
+  await writeTrackedNotifications(tracked);
+}
+
+export async function cancelAllMedicationNotifications() {
+  if (!isMedicationNotificationPlatform()) {
+    return;
+  }
+
+  const tracked = await readTrackedNotifications();
+  await cancelTrackedEntries(Object.values(tracked).flatMap((record) => record.notifications || []));
+  await AsyncStorage.removeItem(TRACKED_NOTIFICATIONS_KEY);
+}
+
+async function configureAndroidReminderChannel() {
+  if (Platform.OS !== "android") {
+    return;
+  }
+
+  await Notifications.setNotificationChannelAsync(MEDICATION_REMINDER_CHANNEL_ID, {
+    description: "Calm medication reminders scheduled on this device.",
+    enableLights: false,
+    enableVibrate: false,
+    importance: Notifications.AndroidImportance.DEFAULT,
+    name: "Medication reminders",
+    showBadge: false,
+    sound: null,
+    vibrationPattern: [0],
+  });
+}
+
+async function scheduleMedicationSlotNotification(medication, slot) {
+  const leadMinutes = normalizedLeadMinutes(medication.reminder?.leadMinutes);
+  const reminderMinutes = minutesFromTime(slot.time) - leadMinutes;
+  const reminderTime = clockParts(reminderMinutes);
+  const identifier = await Notifications.scheduleNotificationAsync({
+    content: {
+      autoDismiss: true,
+      body: notificationBody(medication, slot, reminderMinutes),
+      color: "#7A9D8E",
+      data: {
+        kind: "medication-reminder",
+        medicationId: medication.id,
+        scheduledTime: slot.time,
+        slotId: slot.id,
+      },
+      priority: Notifications.AndroidNotificationPriority.DEFAULT,
+      sound: false,
+      subtitle: slot.label,
+      title: "Medication reminder",
+    },
+    trigger: {
+      channelId: MEDICATION_REMINDER_CHANNEL_ID,
+      hour: reminderTime.hour,
+      minute: reminderTime.minute,
+      type: "daily",
+    },
+  });
+
+  return {
+    identifier,
+    reminderTime: formatMinutes(reminderMinutes),
+    scheduledTime: slot.time,
+    slotId: slot.id,
+  };
+}
+
+function shouldScheduleMedication(medication) {
+  return Boolean(medication?.id && medication?.reminder?.enabled && normalizedSchedule(medication).length);
+}
+
+function notificationBody(medication, slot, reminderMinutes) {
+  const dosage = medication.dosage ? `${medication.dosage} - ` : "";
+  const reminderLabel = reminderMinutes === minutesFromTime(slot.time)
+    ? ""
+    : ` Reminder set for ${formatMinutes(reminderMinutes)}.`;
+  return `${medication.name} - ${dosage}${slot.label} dose at ${formatClock(slot.time)}.${reminderLabel}`;
+}
+
+function notificationSignature(medication) {
+  return JSON.stringify({
+    dosage: medication.dosage || "",
+    leadMinutes: normalizedLeadMinutes(medication.reminder?.leadMinutes),
+    name: medication.name || "",
+    reminderEnabled: Boolean(medication.reminder?.enabled),
+    schedule: normalizedSchedule(medication).map((slot) => ({
+      id: slot.id,
+      label: slot.label,
+      time: slot.time,
+    })),
+  });
+}
+
+function normalizedLeadMinutes(value) {
+  const minutes = Number(value);
+  if (!Number.isFinite(minutes)) {
+    return 15;
+  }
+  return Math.min(240, Math.max(0, Math.round(minutes)));
+}
+
+function clockParts(totalMinutes) {
+  const minutes = ((totalMinutes % 1440) + 1440) % 1440;
+  return {
+    hour: Math.floor(minutes / 60),
+    minute: minutes % 60,
+  };
+}
+
+async function cancelTrackedEntries(entries) {
+  for (const entry of entries || []) {
+    if (!entry?.identifier) {
+      continue;
+    }
+    try {
+      await Notifications.cancelScheduledNotificationAsync(entry.identifier);
+    } catch (error) {
+      console.warn("[Med Organizer mobile] Notification cancel failed", {
+        identifier: entry.identifier,
+        message: error?.message || String(error || ""),
+      });
+    }
+  }
+}
+
+async function readTrackedNotifications() {
+  try {
+    const raw = await AsyncStorage.getItem(TRACKED_NOTIFICATIONS_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch (error) {
+    console.warn("[Med Organizer mobile] Notification tracking read failed", {
+      message: error?.message || String(error || ""),
+    });
+    return {};
+  }
+}
+
+async function writeTrackedNotifications(tracked) {
+  await AsyncStorage.setItem(TRACKED_NOTIFICATIONS_KEY, JSON.stringify(tracked || {}));
+}
+
+function permissionError(permission) {
+  const error = new Error(
+    permission.canAskAgain
+      ? "Notifications were not allowed, so the medication was saved without phone reminders."
+      : "Notifications are turned off for this app. Turn them on in system settings to receive medication reminders.",
+  );
+  error.code = "notifications/permission-denied";
+  error.status = permission.status;
+  return error;
+}

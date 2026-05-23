@@ -23,6 +23,7 @@
     "@react-native-async-storage/async-storage": "2.2.0",
     "expo": "~55.0.26",
     "expo-auth-session": "~55.0.16",
+    "expo-notifications": "~55.0.23",
     "expo-web-browser": "~55.0.16",
     "firebase": "^12.13.0",
     "react": "19.2.0",

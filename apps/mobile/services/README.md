@@ -14,6 +14,7 @@ Implemented mobile service pieces:
 3. Dose-status writes that preserve the web app document shape.
 4. Storage upload/delete helpers that preserve the current attachment shape.
 5. A web-compatible Google sign-in path plus a native anonymous preview session.
+6. Local notification scheduling for installed Expo builds, with notification IDs tracked only in device storage.
 
 Native Google sign-in still needs iOS and Android OAuth client IDs before team members can use the same Google account across native mobile and web.
 

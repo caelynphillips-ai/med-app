@@ -11,6 +11,13 @@ import {
   subscribeToMedicationRecords,
 } from "../services/medication-repository.js";
 import { describeMobileError, logMobileError } from "../services/mobile-error.js";
+import {
+  cancelAllMedicationNotifications,
+  cancelMedicationNotifications,
+  describeNotificationError,
+  rescheduleMedicationNotifications,
+  syncMedicationNotifications,
+} from "../services/notification-service.js";
 import { ensureSampleData } from "../services/sample-data-service.js";
 import { deleteAttachmentPath } from "../services/storage-service.js";
 
@@ -60,6 +67,10 @@ export function useMobileMedications() {
           (records) => {
             setMedications(records);
             setLoadingMeds(false);
+            void syncMedicationNotifications(records).catch((err) => {
+              logMobileError("Notification sync failed", err);
+              setError(describeNotificationError(err, "Syncing medication reminders"));
+            });
           },
           (err) => {
             logMobileError("Medication subscription failed", err);
@@ -127,6 +138,12 @@ export function useMobileMedications() {
     try {
       await signOutUser();
       setError("");
+      try {
+        await cancelAllMedicationNotifications();
+      } catch (err) {
+        logMobileError("Notification cleanup failed during sign out", err);
+        setError(describeNotificationError(err, "Clearing medication reminders"));
+      }
     } catch (err) {
       logMobileError("Sign out failed", err);
       setError(describeMobileError(err, "Sign out"));
@@ -163,7 +180,19 @@ export function useMobileMedications() {
     }
     try {
       const savedId = await saveMedicationRecord(user.uid, medId, payload);
-      setError("");
+      try {
+        await rescheduleMedicationNotifications(
+          {
+            ...payload,
+            id: savedId,
+          },
+          { requestPermissions: Boolean(payload.reminder?.enabled) },
+        );
+        setError("");
+      } catch (err) {
+        logMobileError("Notification scheduling failed", err);
+        setError(describeNotificationError(err, "Scheduling medication reminders"));
+      }
       return savedId;
     } catch (err) {
       logMobileError("Medication save failed", err);
@@ -188,6 +217,12 @@ export function useMobileMedications() {
     try {
       await deleteMedicationRecord(user.uid, medId);
       setError("");
+      try {
+        await cancelMedicationNotifications(medId);
+      } catch (err) {
+        logMobileError("Notification cancel failed after medication delete", err);
+        setError(describeNotificationError(err, "Canceling medication reminders"));
+      }
     } catch (err) {
       logMobileError("Medication delete failed", err);
       const message = describeMobileError(err, "Deleting medication");
