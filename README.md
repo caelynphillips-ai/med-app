@@ -73,6 +73,8 @@ See `PRODUCTION_READINESS.md` for Firebase rules, auth status, notification limi
 
 See `RULES_TESTING.md` for Firestore and Storage emulator test setup.
 
+See `CI_RELEASE_GUARDRAILS.md` for the GitHub Actions checks that run on pushes and pull requests.
+
 ## Firebase Features Used
 
 - Authentication: Google sign-in

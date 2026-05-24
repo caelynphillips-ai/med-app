@@ -1,0 +1,39 @@
+name: Project Checks
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  verify:
+    name: Firebase rules and Expo exports
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Set up Java for Firebase emulators
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Firebase security rules tests
+        run: npm run test:rules
+
+      - name: Validate Expo web export
+        run: npm run ci:web-export
+
+      - name: Validate Expo Android export
+        run: npm run ci:expo-export

@@ -17,6 +17,8 @@
     "desktop:build": "npm --prefix apps/desktop run build",
     "desktop:dist": "npm --prefix apps/desktop run dist",
     "rxterms:import": "node scripts/import-rxterms.mjs",
+    "ci:web-export": "expo export --platform web --output-dir .expo-ci/web",
+    "ci:expo-export": "expo export --platform android --output-dir .expo-ci/android",
     "test:rules": "firebase emulators:exec --project demo-med-organizer-rules --only firestore,storage \"npm run test:rules:unit\"",
     "test:rules:unit": "node --test tests/rules/*.test.js"
   },
