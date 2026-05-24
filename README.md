@@ -71,6 +71,8 @@ See `TEAM_RUNBOOK.md` for platform setup, cross-client testing, and release note
 
 See `PRODUCTION_READINESS.md` for Firebase rules, auth status, notification limits, account deletion planning, and launch blockers.
 
+See `RULES_TESTING.md` for Firestore and Storage emulator test setup.
+
 ## Firebase Features Used
 
 - Authentication: Google sign-in

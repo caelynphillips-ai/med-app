@@ -16,7 +16,9 @@
     "desktop": "npm --prefix apps/desktop start",
     "desktop:build": "npm --prefix apps/desktop run build",
     "desktop:dist": "npm --prefix apps/desktop run dist",
-    "rxterms:import": "node scripts/import-rxterms.mjs"
+    "rxterms:import": "node scripts/import-rxterms.mjs",
+    "test:rules": "firebase emulators:exec --project demo-med-organizer-rules --only firestore,storage \"npm run test:rules:unit\"",
+    "test:rules:unit": "node --test tests/rules/*.test.js"
   },
   "dependencies": {
     "@expo/metro-runtime": "~55.0.11",
@@ -33,7 +35,9 @@
   },
   "devDependencies": {
     "@expo/ngrok": "^4.1.0",
+    "@firebase/rules-unit-testing": "^5.0.0",
     "@types/react": "~19.2.10",
+    "firebase-tools": "^15.0.0",
     "typescript": "~5.9.2"
   }
 }
