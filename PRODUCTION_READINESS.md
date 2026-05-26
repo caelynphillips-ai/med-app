@@ -1,4 +1,4 @@
-# Production Readiness Notes
+# Azur Well Production Readiness Notes
 
 This checklist tracks what is ready, what has been hardened, and what still blocks a public launch.
 
@@ -84,28 +84,25 @@ Real-device testing is still required for:
 Privacy screens provide:
 
 - Medical disclaimer
-- Storage explanation
-- JSON export
 - Readable medication list export
 - Preview mode explanation on mobile
-- Account deletion preparation copy
+- Secure account deletion
 
-Exports include attachment metadata, not uploaded files.
+The readable export includes medication, schedule, instruction, note, reminder, refill, attachment metadata, and recent dose history summary information. It does not include uploaded attachment files.
 
-## Account Deletion Plan
+## Account Deletion Status
 
-Account deletion is not implemented yet. Before public launch, add a secure irreversible flow that:
+Account deletion is implemented in the web and Expo mobile Privacy flows. The flow:
 
-1. Requires recent sign-in or reauthentication.
-2. Shows exactly what will be deleted.
+1. Requires the user to type `DELETE`.
+2. Shows a final confirmation dialog.
 3. Deletes Storage attachments under `users/{uid}/medications`.
 4. Deletes `users/{uid}/medications`.
 5. Deletes `users/{uid}/doseStatus`.
 6. Deletes `users/{uid}/appMeta/settings`.
-7. Deletes or disables the Firebase Auth user.
-8. Records no medical data outside the user-owned Firebase paths.
+7. Deletes the Firebase Auth user last when Firebase allows it.
 
-Do not expose a destructive deletion button until this flow is implemented and tested.
+Firebase can require recent sign-in before Auth user deletion. If that happens, users should sign out, sign back in, and retry. Re-test this flow after moving to a partner Firebase project and deploying the current Storage rules.
 
 ## Expo/EAS Launch Checklist
 
@@ -122,7 +119,6 @@ Before a preview or production build:
 ## Release Blockers
 
 - Native Google sign-in for Expo mobile is not implemented.
-- Account deletion is documented but not implemented.
 - No formal offline sync or conflict handling exists.
 - Store metadata, privacy policy URL, support URL, and screenshots are not prepared.
 - Desktop app distribution still needs code signing.

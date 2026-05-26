@@ -1,4 +1,4 @@
-# Med Organizer
+# Azur Well
 
 A Firebase-backed medication, vitamin, and supplement organizer with four client targets:
 
@@ -69,7 +69,9 @@ users/{uid}/medications/{medicationId}/{timestamp}-{filename}
 
 See `TEAM_RUNBOOK.md` for platform setup, cross-client testing, and release notes.
 
-See `PRODUCTION_READINESS.md` for Firebase rules, auth status, notification limits, account deletion planning, and launch blockers.
+See `PARTNER_HANDOFF.md` for partner account setup, replacement values, OAuth notes, and the final handoff checklist.
+
+See `PRODUCTION_READINESS.md` for Firebase rules, auth status, notification limits, account deletion status, and launch blockers.
 
 See `RULES_TESTING.md` for Firestore and Storage emulator test setup.
 

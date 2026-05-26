@@ -1,6 +1,6 @@
-# Med Organizer iOS
+# Azur Well iOS
 
-This is the native SwiftUI iOS client for Med Organizer. It uses the same Firebase backend as the browser and Electron apps:
+This is the native SwiftUI iOS client source for Azur Well. It uses the same Firebase backend as the browser and Electron apps:
 
 - Firebase Authentication with Google sign-in
 - Firestore at `users/{uid}/medications` and `users/{uid}/doseStatus/{yyyy-mm-dd}`
@@ -10,7 +10,7 @@ This is the native SwiftUI iOS client for Med Organizer. It uses the same Fireba
 ## What You Need On A Mac
 
 1. Open the Firebase Console for project `med-test-7a252`.
-2. Add an iOS app with bundle id `com.medorganizer.ios`.
+2. Add an iOS app with bundle id `com.caelynphillips.medorganizer`, or replace this with the partner-owned production bundle ID before Firebase/OAuth setup.
 3. Download `GoogleService-Info.plist`.
 4. Put it in:
 
