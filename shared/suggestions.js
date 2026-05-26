@@ -64,7 +64,7 @@ export function intakeFromFoodInstructions(instructions) {
   if (/water/.test(value)) {
     return "water";
   }
-  return "water";
+  return "";
 }
 
 export function normalizeMedicationPurpose(value) {

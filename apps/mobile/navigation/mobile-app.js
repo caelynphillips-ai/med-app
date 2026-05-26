@@ -63,7 +63,7 @@ export function MobileApp() {
 
 function renderRoute(route, mobile, selectedMedication, navigate) {
   if (route.route === routes.medications) {
-    return <MedicationsScreen medications={mobile.medications} onNavigate={navigate} />;
+    return <MedicationsScreen medications={mobile.medications} onDelete={mobile.deleteMedication} onNavigate={navigate} />;
   }
 
   if (route.route === routes.medicationDetail) {
@@ -92,7 +92,7 @@ function renderRoute(route, mobile, selectedMedication, navigate) {
     return (
       <PrivacyScreen
         busy={mobile.busy}
-        historyStatuses={mobile.historyStatuses}
+        onDeleteAccount={mobile.deleteAccount}
         medications={mobile.medications}
         onSignOut={mobile.signOut}
         user={mobile.user}
@@ -104,8 +104,8 @@ function renderRoute(route, mobile, selectedMedication, navigate) {
     <TodayScreen
       medications={mobile.medications}
       statuses={mobile.statuses}
+      onEditMedication={(medicationId) => navigate({ route: routes.medicationForm, medicationId })}
       onMarkDose={mobile.markDose}
-      useSampleFallback={!mobile.user}
     />
   );
 }

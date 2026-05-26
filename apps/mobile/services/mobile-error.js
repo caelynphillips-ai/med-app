@@ -18,6 +18,18 @@ export function describeMobileError(error, action = "Action") {
     return `${action} needs an active Firebase session. Firebase returned ${code}: ${message}. Use Preview mode before saving or syncing medications.`;
   }
 
+  if (code === "auth/requires-recent-login") {
+    return "For safety, Firebase needs a fresh sign-in before deleting this account. Sign out, sign back in, then try deleting the account again.";
+  }
+
+  if (code === "account/attachment-delete-failed") {
+    return "One or more uploaded attachments could not be deleted, so the account was not deleted. Check your connection and try again.";
+  }
+
+  if (code === "account/invalid-attachment-path") {
+    return "One attachment did not belong to this account, so the account was not deleted. Contact support before trying again.";
+  }
+
   if (code === "unavailable" || code === "deadline-exceeded" || /network|offline|failed to fetch/i.test(message)) {
     return `${action} could not reach Firebase. Your current screen will stay visible when possible; try again when the connection is back.`;
   }
@@ -34,7 +46,7 @@ export function describeMobileError(error, action = "Action") {
 }
 
 export function logMobileError(context, error) {
-  console.warn(`[Med Organizer mobile] ${context}`, {
+  console.warn(`[Azur Well mobile] ${context}`, {
     code: error?.code || "",
     message: error?.message || String(error || ""),
   });

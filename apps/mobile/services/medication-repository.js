@@ -2,6 +2,7 @@ import {
   addDoc,
   collection,
   deleteDoc,
+  deleteField,
   doc,
   onSnapshot,
   orderBy,
@@ -28,16 +29,25 @@ export function subscribeToMedicationRecords(uid, onMedications, onError) {
 }
 
 export async function saveMedicationRecord(uid, medId, payload) {
+  const preparedPayload = { ...payload };
+  if (!preparedPayload.intake) {
+    if (medId) {
+      preparedPayload.intake = deleteField();
+    } else {
+      delete preparedPayload.intake;
+    }
+  }
+
   if (medId) {
     await updateDoc(doc(db, "users", uid, "medications", medId), {
-      ...payload,
+      ...preparedPayload,
       updatedAt: serverTimestamp(),
     });
     return medId;
   }
 
   const medRef = await addDoc(collection(db, "users", uid, "medications"), {
-    ...payload,
+    ...preparedPayload,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });

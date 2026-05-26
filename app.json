@@ -1,23 +1,25 @@
 {
   "expo": {
-    "name": "Med Organizer",
+    "name": "Azur Well",
     "slug": "med-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "scheme": "medorganizer",
     "userInterfaceStyle": "light",
+    "icon": "./assets/icon.png",
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.caelynphillips.medorganizer",
       "infoPlist": {
-        "NSCameraUsageDescription": "Med Organizer can use the camera if your team adds medication label capture later.",
-        "NSPhotoLibraryUsageDescription": "Med Organizer can use photos if your team adds medication label uploads later."
+        "NSCameraUsageDescription": "Azur Well can use the camera if your team adds medication label capture later.",
+        "NSPhotoLibraryUsageDescription": "Azur Well can use photos if your team adds medication label uploads later."
       }
     },
     "android": {
       "package": "com.caelynphillips.medorganizer",
       "adaptiveIcon": {
-        "backgroundColor": "#EAF7F6"
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#EAF4FF"
       }
     },
     "web": {
@@ -37,7 +39,7 @@
       [
         "expo-notifications",
         {
-          "color": "#7A9D8E",
+          "color": "#0080FF",
           "defaultChannel": "medication-reminders"
         }
       ]

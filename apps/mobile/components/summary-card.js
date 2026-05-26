@@ -18,7 +18,9 @@ export function SummaryCard({ label, value }) {
 const styles = StyleSheet.create({
   card: {
     ...shadows.card,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.cardEmphasis,
+    borderColor: "rgba(0, 128, 255, 0.38)",
+    borderWidth: 1,
     borderCurve: "continuous",
     borderRadius: radius.md,
     flex: 1,
@@ -27,13 +29,12 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
   },
   label: {
-    color: colors.text,
+    color: colors.onEmphasisMuted,
     fontSize: typography.label,
     fontWeight: "800",
-    opacity: 0.72,
   },
   value: {
-    color: colors.text,
+    color: colors.onPrimary,
     fontSize: 24,
     fontVariant: ["tabular-nums"],
     fontWeight: "900",

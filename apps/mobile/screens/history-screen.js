@@ -3,7 +3,9 @@ import { StyleSheet, Text, View } from "react-native";
 import {
   buildAdherenceSummary,
   formatHistoryDateLabel,
+  formatMissedDoseTitle,
   getRecentDateKeys,
+  hasDeletedMedicationHistory,
 } from "../../../shared/adherence.js";
 import { formatClock } from "../../../shared/dateTime.js";
 import { SummaryCard } from "../components/summary-card.js";
@@ -12,7 +14,8 @@ import { colors, radius, shadows, spacing, typography } from "../theme/tokens.js
 export function HistoryScreen({ medications, historyLoading, historyStatuses }) {
   const dateKeys = getRecentDateKeys(7);
   const summary = buildAdherenceSummary(dateKeys, historyStatuses, medications);
-  const adherenceValue = summary.adherencePercentage === null ? "No data" : `${summary.adherencePercentage}%`;
+  const adherenceValue = summary.adherencePercentage === null ? "No marked doses" : `${summary.adherencePercentage}%`;
+  const hasDeletedHistory = hasDeletedMedicationHistory(summary.missedDoses);
 
   return (
     <View style={styles.screen}>
@@ -24,7 +27,7 @@ export function HistoryScreen({ medications, historyLoading, historyStatuses }) 
           History
         </Text>
         <Text selectable style={styles.subtitle}>
-          Based on doses you marked taken, skipped, or missed.
+          History only includes doses you marked as taken, skipped, or missed.
         </Text>
       </View>
 
@@ -42,7 +45,8 @@ export function HistoryScreen({ medications, historyLoading, historyStatuses }) 
       <View style={styles.summaryGrid}>
         <SummaryCard label="Adherence" value={adherenceValue} />
         <SummaryCard label="Taken" value={String(summary.totals.taken)} />
-        <SummaryCard label="Missed/skipped" value={String(summary.totals.missed + summary.totals.skipped)} />
+        <SummaryCard label="Skipped" value={String(summary.totals.skipped)} />
+        <SummaryCard label="Missed" value={String(summary.totals.missed)} />
       </View>
 
       {summary.hasHistory ? (
@@ -58,7 +62,7 @@ export function HistoryScreen({ medications, historyLoading, historyStatuses }) 
                     {formatHistoryDateLabel(day.dateKey)}
                   </Text>
                   <Text selectable style={styles.dayPercent}>
-                    {day.adherencePercentage === null ? "No data" : `${day.adherencePercentage}%`}
+                    {day.adherencePercentage === null ? "No marked doses" : `${day.adherencePercentage}%`}
                   </Text>
                 </View>
                 <View style={styles.countRow}>
@@ -82,7 +86,7 @@ export function HistoryScreen({ medications, historyLoading, historyStatuses }) 
                     {dose.time ? ` at ${formatClock(dose.time)}` : ""}
                   </Text>
                   <Text selectable style={styles.missedTitle}>
-                    {dose.medicationName} - {dose.slotLabel}
+                    {formatMissedDoseTitle(dose)}
                   </Text>
                 </View>
               ))
@@ -96,6 +100,11 @@ export function HistoryScreen({ medications, historyLoading, historyStatuses }) 
                 </Text>
               </View>
             )}
+            {hasDeletedHistory ? (
+              <Text selectable style={styles.historyNote}>
+                Some history may reference medications that were later deleted.
+              </Text>
+            ) : null}
           </View>
         </>
       ) : (
@@ -114,7 +123,7 @@ export function HistoryScreen({ medications, historyLoading, historyStatuses }) 
           How this is calculated
         </Text>
         <Text selectable style={styles.noticeText}>
-          Adherence is taken doses divided by doses you marked taken, skipped, or missed.
+          Adherence is taken doses divided by doses you marked taken, skipped, or missed. Unmarked doses are not included.
         </Text>
       </View>
     </View>
@@ -187,10 +196,10 @@ const styles = StyleSheet.create({
     letterSpacing: 0,
   },
   missed: {
-    backgroundColor: "rgba(201, 123, 99, 0.34)",
+    backgroundColor: colors.alertSoft,
   },
   missedCard: {
-    backgroundColor: colors.light,
+    backgroundColor: colors.surface,
     borderColor: colors.border,
     borderCurve: "continuous",
     borderRadius: radius.md,
@@ -208,8 +217,14 @@ const styles = StyleSheet.create({
     fontSize: typography.body,
     fontWeight: "900",
   },
+  historyNote: {
+    color: colors.mutedText,
+    fontSize: typography.small,
+    fontWeight: "800",
+    lineHeight: 18,
+  },
   notice: {
-    backgroundColor: colors.light,
+    backgroundColor: colors.primarySoft,
     borderColor: colors.border,
     borderCurve: "continuous",
     borderRadius: radius.lg,
@@ -239,7 +254,7 @@ const styles = StyleSheet.create({
     fontWeight: "900",
   },
   skipped: {
-    backgroundColor: "rgba(201, 166, 107, 0.42)",
+    backgroundColor: colors.accentSoft,
   },
   statusPill: {
     borderCurve: "continuous",

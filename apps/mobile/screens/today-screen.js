@@ -1,5 +1,5 @@
 import React from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { fullDateLabel, formatClock } from "../../../shared/dateTime.js";
 import { DisclaimerCard } from "../components/disclaimer-card.js";
 import { DoseCard } from "../components/dose-card.js";
@@ -7,14 +7,21 @@ import { SummaryCard } from "../components/summary-card.js";
 import { useTodayDoses } from "../hooks/use-today-doses.js";
 import { colors, spacing, typography } from "../theme/tokens.js";
 
-export function TodayScreen({ medications, statuses, onMarkDose, useSampleFallback }) {
+export function TodayScreen({ medications, statuses, onEditMedication, onMarkDose }) {
   const { doses, medications: visibleMedications, summary, markDose } = useTodayDoses({
     medications,
     statuses,
     onMarkDose,
-    useSampleFallback,
   });
   const reminderCards = visibleMedications.filter((medication) => medication.reminder?.enabled);
+  const remainingDoses = Math.max(0, summary.totalDoses - summary.markedTaken);
+  const nextDose = summary.nextDose;
+  const hasDoses = summary.totalDoses > 0;
+  const progressCopy = hasDoses ? `${summary.markedTaken} of ${summary.totalDoses} taken today` : "Add a medication to begin";
+  const heroLabel = nextDose ? "Next dose" : hasDoses ? "Today's progress" : "Start today";
+  const heroTime = nextDose ? formatClock(nextDose.time) : hasDoses ? "All set" : "No doses yet";
+  const heroDetail = hasDoses ? "No open doses left for today." : "Add your first medication to build today's schedule.";
+  const heroDosage = nextDose?.med.dosage?.trim();
 
   return (
     <View style={styles.screen}>
@@ -30,10 +37,41 @@ export function TodayScreen({ medications, statuses, onMarkDose, useSampleFallba
         </Text>
       </View>
 
+      <View style={styles.heroCard}>
+        <View style={styles.heroText}>
+          <Text selectable style={styles.heroLabel}>
+            {heroLabel}
+          </Text>
+          <Text selectable style={styles.heroTime}>
+            {heroTime}
+          </Text>
+          {nextDose ? (
+            <View style={styles.heroDetailRow}>
+              <Text selectable style={styles.heroDetail}>
+                {nextDose.med.name}
+                {heroDosage ? ` - ${heroDosage}` : " - "}
+              </Text>
+              {!heroDosage ? (
+                <PromptChip label="Add dosage" onPress={() => onEditMedication(nextDose.med.id)} />
+              ) : null}
+            </View>
+          ) : (
+            <Text selectable style={styles.heroDetail}>
+              {heroDetail}
+            </Text>
+          )}
+        </View>
+        <View style={styles.progressPill}>
+          <Text selectable style={styles.progressText}>
+            {progressCopy}
+          </Text>
+        </View>
+      </View>
+
       <View style={styles.summaryGrid}>
         <SummaryCard label="Total doses" value={String(summary.totalDoses)} />
         <SummaryCard label="Marked taken" value={String(summary.markedTaken)} />
-        <SummaryCard label="Next dose" value={summary.nextDose ? formatClock(summary.nextDose.time) : "Done"} />
+        <SummaryCard label="Remaining" value={String(remainingDoses)} />
       </View>
 
       <View style={styles.section}>
@@ -46,7 +84,14 @@ export function TodayScreen({ medications, statuses, onMarkDose, useSampleFallba
           </Text>
         </View>
         {doses.length ? (
-          doses.map((dose) => <DoseCard key={dose.key} dose={dose} onStatusChange={markDose} />)
+          doses.map((dose) => (
+            <DoseCard
+              key={dose.key}
+              dose={dose}
+              onEditMedication={() => onEditMedication(dose.med.id)}
+              onStatusChange={markDose}
+            />
+          ))
         ) : (
           <View style={styles.empty}>
             <Text selectable style={styles.emptyTitle}>
@@ -59,12 +104,12 @@ export function TodayScreen({ medications, statuses, onMarkDose, useSampleFallba
         )}
       </View>
 
-      <View style={styles.section}>
-        <Text selectable style={styles.sectionTitle}>
-          Reminders
-        </Text>
-        {reminderCards.length ? (
-          reminderCards.map((medication) => (
+      {reminderCards.length ? (
+        <View style={styles.section}>
+          <Text selectable style={styles.sectionTitle}>
+            Reminders
+          </Text>
+          {reminderCards.map((medication) => (
             <View key={medication.name} style={styles.reminderCard}>
               <Text selectable style={styles.reminderText}>
                 {formatClock(medication.schedule?.[0]?.time || "09:00")} dose
@@ -73,21 +118,20 @@ export function TodayScreen({ medications, statuses, onMarkDose, useSampleFallba
                 {medication.name} - {medication.reminder.leadMinutes} min before
               </Text>
             </View>
-          ))
-        ) : (
-          <View style={styles.empty}>
-            <Text selectable style={styles.emptyTitle}>
-              No reminder cards turned on
-            </Text>
-            <Text selectable style={styles.emptyText}>
-              Turn on reminder-style cards while adding or editing a medication.
-            </Text>
-          </View>
-        )}
-      </View>
+          ))}
+        </View>
+      ) : null}
 
       <DisclaimerCard />
     </View>
+  );
+}
+
+function PromptChip({ label, onPress }) {
+  return (
+    <Pressable accessibilityRole="button" onPress={onPress} style={({ pressed }) => [styles.promptChip, pressed && styles.pressed]}>
+      <Text style={styles.promptChipText}>{label}</Text>
+    </Pressable>
   );
 }
 
@@ -114,6 +158,80 @@ const styles = StyleSheet.create({
     fontSize: typography.label,
     fontWeight: "900",
     letterSpacing: 0,
+  },
+  heroCard: {
+    backgroundColor: colors.cardEmphasis,
+    borderColor: "rgba(0, 128, 255, 0.38)",
+    borderCurve: "continuous",
+    borderRadius: 18,
+    borderWidth: 1,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.md,
+    justifyContent: "space-between",
+    padding: spacing.lg,
+  },
+  heroDetail: {
+    color: colors.onEmphasisMuted,
+    fontSize: typography.body,
+    fontWeight: "800",
+    lineHeight: 22,
+  },
+  heroDetailRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+  },
+  heroLabel: {
+    color: colors.onEmphasisMuted,
+    fontSize: typography.label,
+    fontWeight: "900",
+    textTransform: "uppercase",
+  },
+  heroText: {
+    flex: 1,
+    gap: spacing.xs,
+    minWidth: 190,
+  },
+  heroTime: {
+    color: colors.onPrimary,
+    fontSize: 34,
+    fontVariant: ["tabular-nums"],
+    fontWeight: "900",
+    lineHeight: 38,
+  },
+  progressPill: {
+    alignSelf: "flex-start",
+    backgroundColor: colors.onPrimary,
+    borderCurve: "continuous",
+    borderRadius: 999,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  pressed: {
+    opacity: 0.78,
+  },
+  promptChip: {
+    alignSelf: "flex-start",
+    backgroundColor: "rgba(255, 255, 255, 0.16)",
+    borderColor: "rgba(255, 255, 255, 0.36)",
+    borderCurve: "continuous",
+    borderRadius: 999,
+    borderWidth: 1,
+    minHeight: 30,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+  },
+  promptChipText: {
+    color: colors.onPrimary,
+    fontSize: typography.small,
+    fontWeight: "900",
+  },
+  progressText: {
+    color: colors.darkPrimary,
+    fontSize: typography.small,
+    fontWeight: "900",
   },
   reminderCard: {
     backgroundColor: colors.surface,

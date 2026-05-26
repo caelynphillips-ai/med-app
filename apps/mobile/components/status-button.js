@@ -3,8 +3,8 @@ import { Pressable, StyleSheet, Text } from "react-native";
 import { colors, radius, spacing, typography } from "../theme/tokens.js";
 
 const statusColors = {
-  taken: colors.white,
-  skipped: colors.white,
+  taken: colors.success,
+  skipped: colors.accent,
   missed: colors.alert,
 };
 
@@ -17,6 +17,7 @@ export function StatusButton({ label, selected, status, onPress }) {
       style={({ pressed }) => [
         styles.button,
         { backgroundColor: selected ? statusColors[status] : colors.white },
+        selected && styles.selected,
         pressed && styles.pressed,
       ]}
     >
@@ -27,6 +28,8 @@ export function StatusButton({ label, selected, status, onPress }) {
 
 const styles = StyleSheet.create({
   button: {
+    borderColor: colors.border,
+    borderWidth: 1,
     borderCurve: "continuous",
     borderRadius: radius.pill,
     minHeight: 42,
@@ -35,6 +38,9 @@ const styles = StyleSheet.create({
   },
   pressed: {
     opacity: 0.78,
+  },
+  selected: {
+    borderColor: colors.darkPrimary,
   },
   text: {
     color: colors.text,

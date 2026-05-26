@@ -1,14 +1,20 @@
 import React from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { categoryLabels, intakeLabels } from "../../../shared/medicationSchema.js";
 import { formatClock } from "../../../shared/dateTime.js";
 import { statusLabel } from "../../../shared/doseStatus.js";
 import { colors, radius, shadows, spacing, typography } from "../theme/tokens.js";
 import { StatusButton } from "./status-button.js";
 
-export function DoseCard({ dose, onStatusChange }) {
+export function DoseCard({ dose, onEditMedication, onStatusChange }) {
   const category = categoryLabels[dose.med.category] || dose.med.category || "Medication";
-  const intake = intakeLabels[dose.med.intake] || "No intake note";
+  const dosage = dose.med.dosage?.trim() || "Add dosage";
+  const purpose = dose.med.purpose?.trim() || "Add purpose";
+  const intake = intakeLabels[dose.med.intake] || "Add intake note";
+  const dosageMissing = !dose.med.dosage?.trim();
+  const purposeMissing = !dose.med.purpose?.trim();
+  const intakeMissing = !intakeLabels[dose.med.intake];
+  const filledDetails = [dose.med.dosage?.trim(), dose.med.purpose?.trim()].filter(Boolean).join(" - ");
 
   return (
     <View style={styles.card}>
@@ -27,9 +33,17 @@ export function DoseCard({ dose, onStatusChange }) {
             <Text selectable style={styles.name}>
               {dose.med.name}
             </Text>
-            <Text selectable style={styles.detail}>
-              {dose.med.dosage} - {dose.med.purpose}
-            </Text>
+            {filledDetails ? (
+              <Text selectable style={styles.detail}>
+                {filledDetails}
+              </Text>
+            ) : null}
+            {dosageMissing || purposeMissing ? (
+              <View style={styles.promptRow}>
+                {dosageMissing ? <PromptChip label={dosage} onPress={onEditMedication} /> : null}
+                {purposeMissing ? <PromptChip label={purpose} onPress={onEditMedication} /> : null}
+              </View>
+            ) : null}
           </View>
           <View style={styles.categoryChip}>
             <Text style={styles.categoryText}>{category}</Text>
@@ -40,9 +54,13 @@ export function DoseCard({ dose, onStatusChange }) {
           <View style={styles.statusChip}>
             <Text style={styles.statusText}>{statusLabel(dose.status)}</Text>
           </View>
-          <Text selectable style={styles.intake}>
-            {intake}
-          </Text>
+          {intakeMissing ? (
+            <PromptChip label={intake} onPress={onEditMedication} />
+          ) : (
+            <Text selectable style={styles.intake}>
+              {intake}
+            </Text>
+          )}
         </View>
 
         <View style={styles.buttonRow}>
@@ -70,6 +88,14 @@ export function DoseCard({ dose, onStatusChange }) {
   );
 }
 
+function PromptChip({ label, onPress }) {
+  return (
+    <Pressable accessibilityRole="button" onPress={onPress} style={({ pressed }) => [styles.promptChip, pressed && styles.pressed]}>
+      <Text style={styles.promptChipText}>{label}</Text>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
   body: {
     flex: 1,
@@ -83,7 +109,9 @@ const styles = StyleSheet.create({
   },
   card: {
     ...shadows.card,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.cardEmphasis,
+    borderColor: "rgba(0, 128, 255, 0.38)",
+    borderWidth: 1,
     borderCurve: "continuous",
     borderRadius: radius.md,
     flexDirection: "row",
@@ -103,13 +131,13 @@ const styles = StyleSheet.create({
     fontWeight: "900",
   },
   detail: {
-    color: colors.text,
+    color: colors.onEmphasisMuted,
     fontSize: typography.small,
     lineHeight: 18,
     opacity: 0.76,
   },
   intake: {
-    color: colors.text,
+    color: colors.onEmphasisMuted,
     flexShrink: 1,
     fontSize: typography.small,
     fontWeight: "800",
@@ -121,35 +149,59 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   name: {
-    color: colors.text,
+    color: colors.onPrimary,
     fontSize: 17,
     fontWeight: "900",
   },
+  pressed: {
+    opacity: 0.78,
+  },
+  promptChip: {
+    alignSelf: "flex-start",
+    backgroundColor: "rgba(255, 255, 255, 0.16)",
+    borderColor: "rgba(255, 255, 255, 0.36)",
+    borderCurve: "continuous",
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    minHeight: 30,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+  },
+  promptChipText: {
+    color: colors.onPrimary,
+    fontSize: typography.small,
+    fontWeight: "900",
+  },
+  promptRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+  },
   slot: {
-    color: colors.text,
+    color: colors.onEmphasisMuted,
     fontSize: typography.small,
     opacity: 0.78,
   },
   statusChip: {
-    backgroundColor: colors.white,
+    backgroundColor: "rgba(255, 255, 255, 0.16)",
     borderCurve: "continuous",
     borderRadius: radius.pill,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
   },
   statusText: {
-    color: colors.text,
+    color: colors.onPrimary,
     fontSize: typography.label,
     fontWeight: "900",
   },
   time: {
-    color: colors.text,
+    color: colors.onPrimary,
     fontSize: typography.body,
     fontVariant: ["tabular-nums"],
     fontWeight: "900",
   },
   timeRail: {
-    backgroundColor: "rgba(204, 240, 237, 0.56)",
+    backgroundColor: "rgba(255, 255, 255, 0.14)",
     gap: spacing.xs,
     justifyContent: "center",
     padding: spacing.lg,

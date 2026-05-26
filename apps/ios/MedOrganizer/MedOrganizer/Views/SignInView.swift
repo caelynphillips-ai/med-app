@@ -23,7 +23,7 @@ struct SignInView: View {
             VStack(alignment: .leading, spacing: 14) {
                 Text("Use Google sign-in")
                     .font(.title2.bold())
-                Text("Your organizer is saved in Firebase for your account. New accounts start with sample data so the dashboard is useful right away.")
+                Text("Sign in to build your own medication organizer and keep your schedule available across your Azur Well apps.")
                     .foregroundStyle(AppTheme.text)
 
                 Button {

@@ -29,17 +29,26 @@ export function subscribeToMedicationRecords(uid, onMedications, onError) {
 }
 
 export async function saveMedicationRecord(uid, medId, payload) {
+  const preparedPayload = { ...payload };
+  if (!preparedPayload.intake) {
+    if (medId) {
+      preparedPayload.intake = deleteField();
+    } else {
+      delete preparedPayload.intake;
+    }
+  }
+
   if (medId) {
     const medRef = doc(db, "users", uid, "medications", medId);
     await updateDoc(medRef, {
-      ...payload,
+      ...preparedPayload,
       updatedAt: serverTimestamp(),
     });
     return { medId, medRef };
   }
 
   const medRef = await addDoc(collection(db, "users", uid, "medications"), {
-    ...payload,
+    ...preparedPayload,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });

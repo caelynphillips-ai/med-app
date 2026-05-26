@@ -20,10 +20,10 @@ export function RemindersScreen({ medications, onNavigate }) {
             Reminder cards
           </Text>
           <Text selectable style={styles.subtitle}>
-            Cards and local reminders follow the schedules you already set.
+            Cards follow saved schedules. Local phone reminders also require notification permission.
           </Text>
         </View>
-        <ActionButton onPress={() => onNavigate({ route: routes.medicationForm })}>Add</ActionButton>
+        <ActionButton onPress={() => onNavigate({ route: routes.medicationForm })}>Add medication</ActionButton>
       </View>
 
       {reminders.length ? (
@@ -97,6 +97,7 @@ const styles = StyleSheet.create({
   headerRow: {
     alignItems: "center",
     flexDirection: "row",
+    flexWrap: "wrap",
     gap: spacing.md,
     justifyContent: "space-between",
   },

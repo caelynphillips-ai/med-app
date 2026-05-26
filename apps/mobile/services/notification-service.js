@@ -195,7 +195,7 @@ async function scheduleMedicationSlotNotification(medication, slot) {
     content: {
       autoDismiss: true,
       body: notificationBody(medication, slot, reminderMinutes),
-      color: "#7A9D8E",
+      color: "#0080FF",
       data: {
         kind: "medication-reminder",
         medicationId: medication.id,
@@ -263,7 +263,7 @@ async function scheduleMedicationRefillNotification(medication) {
     content: {
       autoDismiss: true,
       body: refillNotificationBody(medication, refillInfo),
-      color: "#7A9D8E",
+      color: "#0080FF",
       data: {
         kind: "medication-refill-reminder",
         medicationId: medication.id,
@@ -337,7 +337,7 @@ async function cancelTrackedEntries(entries) {
     try {
       await Notifications.cancelScheduledNotificationAsync(entry.identifier);
     } catch (error) {
-      console.warn("[Med Organizer mobile] Notification cancel failed", {
+    console.warn("[Azur Well mobile] Notification cancel failed", {
         identifier: entry.identifier,
         message: error?.message || String(error || ""),
       });
@@ -350,7 +350,7 @@ async function readTrackedNotifications() {
     const raw = await AsyncStorage.getItem(TRACKED_NOTIFICATIONS_KEY);
     return raw ? JSON.parse(raw) : {};
   } catch (error) {
-    console.warn("[Med Organizer mobile] Notification tracking read failed", {
+    console.warn("[Azur Well mobile] Notification tracking read failed", {
       message: error?.message || String(error || ""),
     });
     return {};

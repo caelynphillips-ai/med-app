@@ -162,14 +162,6 @@ export function MedicationFormScreen({ medication, onNavigate, onSave }) {
       setError("Medication name is required.");
       return;
     }
-    if (!form.purpose.trim()) {
-      setError("Add a purpose so the medication is easier to recognize later.");
-      return;
-    }
-    if (!form.dosage.trim()) {
-      setError("Add a dosage from the label or type your own.");
-      return;
-    }
     const quantityRemaining = normalizeRefillNumber(form.quantityRemaining);
     const refillThreshold = normalizeRefillNumber(form.refillThreshold);
     if (form.refillReminderEnabled && (quantityRemaining === null || refillThreshold === null)) {
@@ -184,6 +176,10 @@ export function MedicationFormScreen({ medication, onNavigate, onSave }) {
         label: slot.label,
         time: schedule[slot.id]?.time || slot.time,
       }));
+    if (selectedSchedule.length === 0) {
+      setError("Choose at least one time of day.");
+      return;
+    }
 
     setSaving(true);
     setError("");
@@ -196,7 +192,7 @@ export function MedicationFormScreen({ medication, onNavigate, onSave }) {
         purpose: form.purpose.trim(),
         dosage: form.dosage.trim(),
         timesPerDay: Number(form.timesPerDay) || selectedSchedule.length || 1,
-        schedule: selectedSchedule.length ? selectedSchedule : [{ id: "morning", label: "Morning", time: "08:00" }],
+        schedule: selectedSchedule,
         intake: form.intake,
         foodInstructions: form.foodInstructions.trim(),
         notes: form.notes.trim(),
@@ -257,7 +253,7 @@ export function MedicationFormScreen({ medication, onNavigate, onSave }) {
           body="Start with the name, purpose, category, and dosage you want to see later."
         />
 
-        <Field label="Name">
+        <Field label="Name" required>
           <TextInput
             autoCapitalize="words"
             onChangeText={updateName}
@@ -301,12 +297,17 @@ export function MedicationFormScreen({ medication, onNavigate, onSave }) {
             </View>
           ) : null}
           {commonUseOptions.length ? (
-            <View style={styles.chipRow}>
-              {commonUseOptions.map((use) => (
-                <Chip key={use} onPress={() => addCommonUse(use)}>
-                  {commonUseLabel(use)}
-                </Chip>
-              ))}
+            <View style={styles.suggestionGroup}>
+              <Text selectable style={styles.helperText}>
+                Optional common use shortcuts
+              </Text>
+              <View style={styles.chipRow}>
+                {commonUseOptions.map((use) => (
+                  <Chip key={use} onPress={() => addCommonUse(use)}>
+                    {commonUseLabel(use)}
+                  </Chip>
+                ))}
+              </View>
             </View>
           ) : null}
         </Field>
@@ -330,19 +331,24 @@ export function MedicationFormScreen({ medication, onNavigate, onSave }) {
             value={form.dosage}
           />
           {dosageOptions.length ? (
-            <View style={styles.chipRow}>
-              {dosageOptions.map((dosage) => (
-                <Chip key={dosage} selected={form.dosage === dosage} onPress={() => updateField("dosage", dosage)}>
-                  {dosage}
-                </Chip>
-              ))}
+            <View style={styles.suggestionGroup}>
+              <Text selectable style={styles.helperText}>
+                Optional strength/form shortcuts
+              </Text>
+              <View style={styles.chipRow}>
+                {dosageOptions.map((dosage) => (
+                  <Chip key={dosage} selected={form.dosage === dosage} onPress={() => updateField("dosage", dosage)}>
+                    {dosage}
+                  </Chip>
+                ))}
+              </View>
             </View>
           ) : null}
         </Field>
 
         <SectionLabel
-          title="Schedule and reminders"
-          body="Choose when this medication appears in the daily schedule."
+          title="Schedule"
+          body="Choose when this medication appears in the daily schedule. Times per day should match the time slots you turn on."
         />
 
         <View style={styles.row}>
@@ -355,20 +361,13 @@ export function MedicationFormScreen({ medication, onNavigate, onSave }) {
               style={styles.input}
               value={String(form.timesPerDay)}
             />
-          </Field>
-          <Field label="Reminder lead time" style={styles.rowField}>
-            <TextInput
-              keyboardType="number-pad"
-              onChangeText={(value) => updateField("reminderLeadMinutes", value)}
-              placeholder="15"
-              placeholderTextColor={colors.mutedText}
-              style={styles.input}
-              value={String(form.reminderLeadMinutes)}
-            />
+            <Text selectable style={styles.helperText}>
+              Use the number of daily doses on the label.
+            </Text>
           </Field>
         </View>
 
-        <Field label="Specific times of day">
+        <Field label="Specific times of day" required>
           <View style={styles.scheduleGrid}>
             {defaultScheduleSlots.map((slot) => (
               <View key={slot.id} style={styles.scheduleItem}>
@@ -388,10 +387,15 @@ export function MedicationFormScreen({ medication, onNavigate, onSave }) {
           </View>
         </Field>
 
+        <SectionLabel
+          title="Instructions"
+          body="Add practical notes about how this medication should be taken."
+        />
+
         <Field label="How it should be taken">
           <View style={styles.chipRow}>
             {Object.entries(intakeLabels).map(([key, label]) => (
-              <Chip key={key} selected={form.intake === key} onPress={() => updateField("intake", key)}>
+              <Chip key={key} selected={form.intake === key} onPress={() => updateField("intake", form.intake === key ? "" : key)}>
                 {label}
               </Chip>
             ))}
@@ -408,6 +412,11 @@ export function MedicationFormScreen({ medication, onNavigate, onSave }) {
           />
         </Field>
 
+        <SectionLabel
+          title="Reminders"
+          body="Local phone reminders require notification permission on this device."
+        />
+
         <View style={styles.switchRow}>
           <View style={styles.switchText}>
             <Text style={styles.switchTitle}>Turn on dose reminders</Text>
@@ -421,9 +430,23 @@ export function MedicationFormScreen({ medication, onNavigate, onSave }) {
           />
         </View>
 
+        <Field label="Reminder lead time">
+          <TextInput
+            keyboardType="number-pad"
+            onChangeText={(value) => updateField("reminderLeadMinutes", value)}
+            placeholder="15"
+            placeholderTextColor={colors.mutedText}
+            style={[styles.input, !form.reminderEnabled && styles.mutedInput]}
+            value={String(form.reminderLeadMinutes)}
+          />
+          <Text selectable style={styles.helperText}>
+            Only used when dose reminders are turned on.
+          </Text>
+        </Field>
+
         <SectionLabel
-          title="Refill and notes"
-          body="Optional supply details and notes stay with this medication."
+          title="Refill tracking"
+          body="Optional supply details can help with low-supply reminders."
         />
 
         <Field label="Refill tracking">
@@ -472,6 +495,11 @@ export function MedicationFormScreen({ medication, onNavigate, onSave }) {
           </View>
         </Field>
 
+        <SectionLabel
+          title="Notes"
+          body="Keep doctor instructions, refill notes, side effects, or attachment details here."
+        />
+
         <Field label="Additional notes">
           <TextInput
             multiline
@@ -510,10 +538,10 @@ function SectionLabel({ body, title }) {
   );
 }
 
-function Field({ children, label, style }) {
+function Field({ children, label, required, style }) {
   return (
     <View style={[styles.field, style]}>
-      <FieldLabel>{label}</FieldLabel>
+      <FieldLabel required={required}>{label}</FieldLabel>
       {children}
     </View>
   );
@@ -527,7 +555,7 @@ function formFromMedication(medication) {
     purpose: medication?.purpose || "",
     dosage: medication?.dosage || "",
     timesPerDay: String(medication?.timesPerDay || 1),
-    intake: medication?.intake || "water",
+    intake: medication?.intake || "",
     foodInstructions: medication?.foodInstructions || "",
     notes: medication?.notes || "",
     quantityRemaining: medication?.quantityRemaining ?? "",
@@ -561,7 +589,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   error: {
-    backgroundColor: "rgba(201, 123, 99, 0.22)",
+    backgroundColor: colors.alertSoft,
     borderColor: colors.alert,
     borderCurve: "continuous",
     borderRadius: radius.md,
@@ -597,11 +625,12 @@ const styles = StyleSheet.create({
   headerRow: {
     alignItems: "center",
     flexDirection: "row",
+    flexWrap: "wrap",
     gap: spacing.md,
     justifyContent: "space-between",
   },
   input: {
-    backgroundColor: colors.background,
+    backgroundColor: colors.white,
     borderColor: colors.border,
     borderCurve: "continuous",
     borderRadius: radius.sm,
@@ -611,6 +640,15 @@ const styles = StyleSheet.create({
     minHeight: 52,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
+  },
+  helperText: {
+    color: colors.mutedText,
+    fontSize: typography.small,
+    fontWeight: "800",
+    lineHeight: 18,
+  },
+  mutedInput: {
+    opacity: 0.72,
   },
   row: {
     flexDirection: "row",
@@ -622,7 +660,7 @@ const styles = StyleSheet.create({
     minWidth: 150,
   },
   scheduleCheck: {
-    backgroundColor: colors.light,
+    backgroundColor: colors.primarySoft,
     borderCurve: "continuous",
     borderRadius: radius.pill,
     paddingHorizontal: spacing.md,
@@ -669,11 +707,14 @@ const styles = StyleSheet.create({
     gap: spacing.lg,
   },
   suggestion: {
-    backgroundColor: colors.light,
+    backgroundColor: colors.primarySoft,
     borderCurve: "continuous",
     borderRadius: radius.sm,
     gap: 2,
     padding: spacing.md,
+  },
+  suggestionGroup: {
+    gap: spacing.sm,
   },
   suggestionList: {
     gap: spacing.sm,
@@ -720,7 +761,7 @@ const styles = StyleSheet.create({
     minHeight: 110,
   },
   timeInput: {
-    backgroundColor: colors.background,
+    backgroundColor: colors.white,
     borderColor: colors.border,
     borderCurve: "continuous",
     borderRadius: radius.sm,

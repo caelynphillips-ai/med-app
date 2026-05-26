@@ -20,7 +20,7 @@ export function MedicationDetailScreen({ medication, onDelete, onNavigate }) {
           Medication not found
         </Text>
         <ActionButton tone="quiet" onPress={() => onNavigate({ route: routes.medications })}>
-          Back to list
+          Back to medications
         </ActionButton>
       </View>
     );
@@ -45,11 +45,34 @@ export function MedicationDetailScreen({ medication, onDelete, onNavigate }) {
     ]);
   }
 
+  const instructions = medication.foodInstructions || intakeLabels[medication.intake] || "";
+  const detailBlocks = [
+    { label: "Purpose", value: medication.purpose },
+    { label: "Dosage", value: medication.dosage },
+    { label: "Category", value: categoryLabels[medication.category] || medication.category || "Medication", always: true },
+    { label: "Instructions", value: instructions },
+  ].filter((block) => block.always || hasDetailValue(block.value));
+  const utilityBlocks = [
+    medication.reminder?.enabled
+      ? { label: "Reminder", value: `${medication.reminder.leadMinutes || 15} minutes before` }
+      : null,
+    hasAttachment(medication) ? { label: "Attachment", value: medication.attachment?.name || "Uploaded file" } : null,
+  ].filter(Boolean);
+  const refillBlocks = [
+    refillInfo.estimatedDaysRemaining !== null || refillInfo.isLowSupply
+      ? { label: "Estimated supply", value: refillStatusLabel(medication) }
+      : null,
+    refillInfo.quantityRemaining !== null ? { label: "Quantity remaining", value: refillQuantityLabel(refillInfo.quantityRemaining) } : null,
+    refillInfo.refillThreshold !== null ? { label: "Low supply threshold", value: refillThresholdLabel(refillInfo.refillThreshold) } : null,
+    refillInfo.refillReminderEnabled ? { label: "Refill reminder", value: "On" } : null,
+    hasDetailValue(refillInfo.lastRefillDate) ? { label: "Last refill", value: refillInfo.lastRefillDate, wide: true } : null,
+  ].filter(Boolean);
+
   return (
     <View style={styles.screen}>
       <View style={styles.headerRow}>
         <ActionButton disabled={deleting} tone="quiet" onPress={() => onNavigate({ route: routes.medications })}>
-          Back
+          Back to medications
         </ActionButton>
         <View style={styles.headerActions}>
           <ActionButton disabled={deleting} tone="quiet" onPress={() => onNavigate({ route: routes.medicationForm, medicationId: medication.id })}>
@@ -69,16 +92,23 @@ export function MedicationDetailScreen({ medication, onDelete, onNavigate }) {
           {medication.name}
         </Text>
         <Text selectable style={styles.subtitle}>
-          Purpose, schedule, refill details, and notes in one place.
+          Review the details saved for this medication.
         </Text>
       </View>
 
       <View style={styles.card}>
-        <InfoBlock label="Purpose" value={medication.purpose || "No purpose yet"} />
-        <InfoBlock label="Dosage" value={medication.dosage || "No dosage"} />
-        <InfoBlock label="Category" value={categoryLabels[medication.category] || medication.category || "Medication"} />
-        <InfoBlock label="Instructions" value={medication.foodInstructions || intakeLabels[medication.intake] || "Not specified"} />
-        <InfoBlock label="Notes" value={medication.notes || "No notes yet"} wide />
+        {detailBlocks.map((block) => (
+          <InfoBlock key={block.label} label={block.label} value={block.value} />
+        ))}
+        {hasDetailValue(medication.notes) ? (
+          <InfoBlock label="Notes" value={medication.notes} wide />
+        ) : (
+          <View style={styles.noteAction}>
+            <ActionButton tone="quiet" onPress={() => onNavigate({ route: routes.medicationForm, medicationId: medication.id })}>
+              Add notes
+            </ActionButton>
+          </View>
+        )}
       </View>
 
       <View style={styles.card}>
@@ -103,26 +133,34 @@ export function MedicationDetailScreen({ medication, onDelete, onNavigate }) {
         )}
       </View>
 
-      <View style={styles.card}>
-        <InfoBlock
-          label="Reminder"
-          value={medication.reminder?.enabled ? `${medication.reminder.leadMinutes || 15} minutes before` : "Off"}
-        />
-        <InfoBlock label="Attachment" value={medication.attachment?.name || "No label photo or instruction file uploaded yet."} />
-      </View>
+      {utilityBlocks.length ? (
+        <View style={styles.card}>
+          {utilityBlocks.map((block) => (
+            <InfoBlock key={block.label} label={block.label} value={block.value} />
+          ))}
+        </View>
+      ) : null}
 
-      <View style={styles.card}>
-        <Text selectable style={styles.cardTitle}>
-          Refill tracking
-        </Text>
-        <InfoBlock label="Estimated supply" value={refillStatusLabel(medication)} />
-        <InfoBlock label="Quantity remaining" value={refillQuantityLabel(refillInfo.quantityRemaining)} />
-        <InfoBlock label="Low supply threshold" value={refillThresholdLabel(refillInfo.refillThreshold)} />
-        <InfoBlock label="Refill reminder" value={refillInfo.refillReminderEnabled ? "On" : "Off"} />
-        <InfoBlock label="Last refill" value={refillInfo.lastRefillDate || "Not set"} wide />
-      </View>
+      {refillBlocks.length ? (
+        <View style={styles.card}>
+          <Text selectable style={styles.cardTitle}>
+            Refill tracking
+          </Text>
+          {refillBlocks.map((block) => (
+            <InfoBlock key={block.label} label={block.label} value={block.value} wide={block.wide} />
+          ))}
+        </View>
+      ) : null}
     </View>
   );
+}
+
+function hasAttachment(medication) {
+  return Boolean(medication?.attachment?.name || medication?.attachment?.path || medication?.attachment?.url);
+}
+
+function hasDetailValue(value) {
+  return String(value ?? "").trim().length > 0;
 }
 
 function InfoBlock({ label, value, wide }) {
@@ -168,15 +206,18 @@ const styles = StyleSheet.create({
   },
   headerActions: {
     flexDirection: "row",
+    flexWrap: "wrap",
     gap: spacing.sm,
   },
   headerRow: {
     alignItems: "center",
     flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
     justifyContent: "space-between",
   },
   infoBlock: {
-    backgroundColor: "rgba(204, 240, 237, 0.28)",
+    backgroundColor: colors.primarySoft,
     borderColor: colors.border,
     borderCurve: "continuous",
     borderRadius: radius.sm,
@@ -201,13 +242,17 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     lineHeight: 22,
   },
+  noteAction: {
+    alignItems: "flex-start",
+    flexBasis: "100%",
+  },
   scheduleLabel: {
     color: colors.text,
     fontSize: typography.small,
     fontWeight: "900",
   },
   scheduleRow: {
-    backgroundColor: "rgba(204, 240, 237, 0.28)",
+    backgroundColor: colors.primarySoft,
     borderColor: colors.border,
     borderCurve: "continuous",
     borderRadius: radius.sm,

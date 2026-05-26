@@ -1,5 +1,5 @@
 import React from "react";
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { categoryLabels } from "../../../shared/medicationSchema.js";
 import { getRefillInfo, refillStatusLabel } from "../../../shared/refill.js";
 import { normalizedSchedule } from "../../../shared/schedule.js";
@@ -16,8 +16,9 @@ import { ActionButton } from "../components/action-button.js";
 import { colors, radius, shadows, spacing, typography } from "../theme/tokens.js";
 import { routes } from "../navigation/routes.js";
 
-export function MedicationsScreen({ medications, onNavigate }) {
+export function MedicationsScreen({ medications, onDelete, onNavigate }) {
   const [controls, setControls] = React.useState(defaultMedicationListControls);
+  const [deletingId, setDeletingId] = React.useState("");
   const visibleMedications = React.useMemo(() => filterAndSortMedications(medications, controls), [controls, medications]);
   const filtersActive = hasActiveMedicationListControls(controls);
   const countLabel = medications.length
@@ -37,6 +38,26 @@ export function MedicationsScreen({ medications, onNavigate }) {
     setControls(defaultMedicationListControls());
   }
 
+  function confirmDelete(medication) {
+    Alert.alert("Delete medication", `Delete ${medication.name}? This removes it from your organizer.`, [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: async () => {
+          setDeletingId(medication.id);
+          try {
+            await onDelete(medication.id);
+          } catch {
+            // The shared mobile error banner is set by the data hook.
+          } finally {
+            setDeletingId("");
+          }
+        },
+      },
+    ]);
+  }
+
   return (
     <View style={styles.screen}>
       <View style={styles.headerRow}>
@@ -48,10 +69,10 @@ export function MedicationsScreen({ medications, onNavigate }) {
             Medication list
           </Text>
           <Text selectable style={styles.subtitle}>
-            Search, filter, and open details without changing saved data.
+            Search, filter, and open details for each saved medication.
           </Text>
         </View>
-        <ActionButton onPress={() => onNavigate({ route: routes.medicationForm })}>Add</ActionButton>
+        <ActionButton onPress={() => onNavigate({ route: routes.medicationForm })}>Add medication</ActionButton>
       </View>
 
       {medications.length ? (
@@ -66,9 +87,12 @@ export function MedicationsScreen({ medications, onNavigate }) {
       {medications.length && visibleMedications.length ? (
         visibleMedications.map((medication) => (
           <MedicationCard
+            deleting={deletingId === medication.id}
             key={medication.id}
             medication={medication}
-            onPress={() => onNavigate({ route: routes.medicationDetail, medicationId: medication.id })}
+            onDelete={() => confirmDelete(medication)}
+            onDetails={() => onNavigate({ route: routes.medicationDetail, medicationId: medication.id })}
+            onEdit={() => onNavigate({ route: routes.medicationForm, medicationId: medication.id })}
           />
         ))
       ) : medications.length ? (
@@ -167,35 +191,94 @@ function FilterGroup({ label, onSelect, options, selectedValue }) {
   );
 }
 
-function MedicationCard({ medication, onPress }) {
-  const schedule = normalizedSchedule(medication)
-    .map((slot) => `${slot.label} ${formatClock(slot.time)}`)
-    .join(", ");
+function MedicationCard({ deleting, medication, onDelete, onDetails, onEdit }) {
+  const scheduleSlots = normalizedSchedule(medication);
+  const nextSlot = scheduleSlots[0];
+  const schedule = scheduleSlots.map((slot) => `${slot.label} ${formatClock(slot.time)}`).join(", ");
   const refillInfo = getRefillInfo(medication);
+  const purpose = medication.purpose?.trim() || "Add purpose";
+  const dosage = medication.dosage?.trim() || "Add dosage";
+  const purposeMissing = !medication.purpose?.trim();
+  const dosageMissing = !medication.dosage?.trim();
 
   return (
-    <Pressable accessibilityRole="button" onPress={onPress} style={({ pressed }) => [styles.card, pressed && styles.pressed]}>
+    <View style={styles.card}>
       <View style={styles.cardTop}>
         <View style={styles.cardTitleColumn}>
           <Text selectable style={styles.name}>
             {medication.name}
           </Text>
-          <Text selectable style={styles.detail}>
-            {medication.dosage || "No dosage"} - {medication.purpose || "No purpose"}
-          </Text>
+          {purposeMissing ? (
+            <PromptChip label={purpose} onPress={onEdit} />
+          ) : (
+            <Text selectable style={styles.detail}>
+              {purpose}
+            </Text>
+          )}
         </View>
         <View style={styles.category}>
           <Text style={styles.categoryText}>{categoryLabels[medication.category] || medication.category || "Medication"}</Text>
         </View>
       </View>
-      <Text selectable style={styles.schedule}>
-        {schedule}
-      </Text>
-      {refillInfo.isTracking ? (
-        <View style={[styles.refillPill, refillInfo.isLowSupply && styles.refillPillLow]}>
-          <Text style={styles.refillPillText}>{refillStatusLabel(medication)}</Text>
+      <View style={styles.scanGrid}>
+        <View style={styles.scanItem}>
+          <Text selectable style={styles.scanLabel}>Dosage</Text>
+          {dosageMissing ? (
+            <PromptChip label={dosage} onPress={onEdit} />
+          ) : (
+            <Text selectable style={styles.scanValue}>{dosage}</Text>
+          )}
+        </View>
+        <View style={styles.scanItem}>
+          <Text selectable style={styles.scanLabel}>Next scheduled</Text>
+          <Text selectable style={styles.scanValue}>{nextSlot ? `${nextSlot.label} ${formatClock(nextSlot.time)}` : "No schedule"}</Text>
+        </View>
+      </View>
+      <View style={styles.badgeRow}>
+        <View style={styles.refillPill}>
+          <Text style={styles.refillPillText}>{medication.reminder?.enabled ? "Reminder on" : "Reminder off"}</Text>
+        </View>
+        {refillInfo.isTracking ? (
+          <View style={[styles.refillPill, refillInfo.isLowSupply && styles.refillPillLow]}>
+            <Text style={styles.refillPillText}>{refillStatusLabel(medication)}</Text>
+          </View>
+        ) : null}
+      </View>
+      {schedule ? (
+        <Text numberOfLines={2} selectable style={styles.schedule}>
+          {schedule}
+        </Text>
+      ) : null}
+      {!medication.notes?.trim() ? (
+        <View style={styles.notePromptRow}>
+          <PromptChip label="Add notes" onPress={onEdit} />
         </View>
       ) : null}
+      <View style={styles.cardActions}>
+        <Pressable accessibilityRole="button" onPress={onDetails} style={({ pressed }) => [styles.quickActionPrimary, pressed && styles.pressed]}>
+          <Text style={styles.quickActionPrimaryText}>Details</Text>
+        </Pressable>
+        <Pressable accessibilityRole="button" onPress={onEdit} style={({ pressed }) => [styles.quickAction, pressed && styles.pressed]}>
+          <Text style={styles.quickActionText}>Edit</Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ disabled: deleting }}
+          disabled={deleting}
+          onPress={onDelete}
+          style={({ pressed }) => [styles.quickActionDanger, deleting && styles.disabled, pressed && !deleting && styles.pressed]}
+        >
+          <Text style={styles.quickActionDangerText}>{deleting ? "Deleting..." : "Delete"}</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+function PromptChip({ label, onPress }) {
+  return (
+    <Pressable accessibilityRole="button" onPress={onPress} style={({ pressed }) => [styles.promptChip, pressed && styles.pressed]}>
+      <Text style={styles.promptChipText}>{label}</Text>
     </Pressable>
   );
 }
@@ -203,20 +286,39 @@ function MedicationCard({ medication, onPress }) {
 const styles = StyleSheet.create({
   card: {
     ...shadows.card,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.cardEmphasis,
+    borderColor: "rgba(0, 128, 255, 0.38)",
+    borderWidth: 1,
     borderCurve: "continuous",
-    borderRadius: radius.md,
+    borderRadius: radius.lg,
     gap: spacing.md,
     padding: spacing.lg,
   },
   cardTitleColumn: {
     flex: 1,
-    gap: 4,
+    gap: spacing.xs,
+    minWidth: 170,
   },
   cardTop: {
     alignItems: "flex-start",
     flexDirection: "row",
+    flexWrap: "wrap",
     gap: spacing.md,
+    justifyContent: "space-between",
+  },
+  cardActions: {
+    borderColor: "rgba(255, 255, 255, 0.2)",
+    borderTopWidth: 1,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+    justifyContent: "flex-end",
+    paddingTop: spacing.sm,
+  },
+  badgeRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
   },
   chipRow: {
     flexDirection: "row",
@@ -236,10 +338,13 @@ const styles = StyleSheet.create({
     fontWeight: "900",
   },
   detail: {
-    color: colors.text,
+    color: colors.onEmphasisMuted,
     fontSize: typography.small,
-    lineHeight: 19,
-    opacity: 0.76,
+    fontWeight: "800",
+    lineHeight: 20,
+  },
+  disabled: {
+    opacity: 0.52,
   },
   empty: {
     backgroundColor: colors.light,
@@ -270,7 +375,7 @@ const styles = StyleSheet.create({
     fontWeight: "900",
   },
   controlsCard: {
-    backgroundColor: colors.light,
+    backgroundColor: colors.surface,
     borderColor: colors.border,
     borderCurve: "continuous",
     borderRadius: radius.lg,
@@ -282,7 +387,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   filterChip: {
-    backgroundColor: "rgba(63, 70, 63, 0.08)",
+    backgroundColor: colors.white,
     borderColor: colors.border,
     borderCurve: "continuous",
     borderRadius: radius.pill,
@@ -291,8 +396,8 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
   },
   filterChipActive: {
-    backgroundColor: colors.accent,
-    borderColor: colors.accent,
+    backgroundColor: colors.primarySoft,
+    borderColor: colors.darkPrimary,
   },
   filterChipText: {
     color: colors.text,
@@ -305,27 +410,100 @@ const styles = StyleSheet.create({
   headerRow: {
     alignItems: "center",
     flexDirection: "row",
+    flexWrap: "wrap",
     gap: spacing.md,
     justifyContent: "space-between",
   },
   name: {
-    color: colors.text,
-    fontSize: 19,
+    color: colors.onPrimary,
+    fontSize: 21,
     fontWeight: "900",
+    lineHeight: 25,
   },
   pressed: {
     opacity: 0.78,
   },
+  promptChip: {
+    alignSelf: "flex-start",
+    backgroundColor: "rgba(255, 255, 255, 0.16)",
+    borderColor: "rgba(255, 255, 255, 0.36)",
+    borderCurve: "continuous",
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    minHeight: 30,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+  },
+  promptChipText: {
+    color: colors.onPrimary,
+    fontSize: typography.small,
+    fontWeight: "900",
+  },
+  notePromptRow: {
+    alignItems: "flex-start",
+  },
+  quickAction: {
+    alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.12)",
+    borderColor: "rgba(255, 255, 255, 0.32)",
+    borderCurve: "continuous",
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    justifyContent: "center",
+    minHeight: 36,
+    minWidth: 76,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+  },
+  quickActionDanger: {
+    alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.88)",
+    borderColor: "rgba(255, 255, 255, 0.42)",
+    borderCurve: "continuous",
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    justifyContent: "center",
+    minHeight: 36,
+    minWidth: 76,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+  },
+  quickActionDangerText: {
+    color: "#8F3A26",
+    fontSize: typography.small,
+    fontWeight: "900",
+  },
+  quickActionPrimary: {
+    alignItems: "center",
+    backgroundColor: "rgba(253, 252, 248, 0.94)",
+    borderCurve: "continuous",
+    borderRadius: radius.pill,
+    justifyContent: "center",
+    minHeight: 36,
+    minWidth: 82,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+  },
+  quickActionPrimaryText: {
+    color: colors.darkPrimary,
+    fontSize: typography.small,
+    fontWeight: "900",
+  },
+  quickActionText: {
+    color: colors.onPrimary,
+    fontSize: typography.small,
+    fontWeight: "900",
+  },
   refillPill: {
     alignSelf: "flex-start",
-    backgroundColor: colors.light,
+    backgroundColor: colors.successSoft,
     borderCurve: "continuous",
     borderRadius: radius.pill,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
   },
   refillPillLow: {
-    backgroundColor: colors.alert,
+    backgroundColor: colors.alertSoft,
   },
   refillPillText: {
     color: colors.text,
@@ -333,7 +511,7 @@ const styles = StyleSheet.create({
     fontWeight: "900",
   },
   searchInput: {
-    backgroundColor: colors.background,
+    backgroundColor: colors.white,
     borderColor: colors.border,
     borderCurve: "continuous",
     borderRadius: radius.md,
@@ -345,9 +523,38 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
   },
   schedule: {
-    color: colors.text,
+    color: colors.onEmphasisMuted,
     fontSize: typography.small,
     fontWeight: "800",
+    lineHeight: 19,
+  },
+  scanGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.md,
+  },
+  scanItem: {
+    backgroundColor: "rgba(255, 255, 255, 0.16)",
+    borderColor: "rgba(255, 255, 255, 0.3)",
+    borderCurve: "continuous",
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    flex: 1,
+    gap: spacing.xs,
+    minWidth: 154,
+    padding: spacing.md,
+  },
+  scanLabel: {
+    color: colors.onEmphasisMuted,
+    fontSize: typography.label,
+    fontWeight: "900",
+    textTransform: "uppercase",
+  },
+  scanValue: {
+    color: colors.onPrimary,
+    fontSize: typography.body,
+    fontWeight: "900",
+    lineHeight: 21,
   },
   screen: {
     gap: spacing.md,

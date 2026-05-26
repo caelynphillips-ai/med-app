@@ -53,5 +53,5 @@ const server = createServer((request, response) => {
 });
 
 server.listen(port, host, () => {
-  console.log(`Med Organizer web app: http://${host}:${port}`);
+  console.log(`Azur Well web app: http://${host}:${port}`);
 });

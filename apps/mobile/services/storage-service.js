@@ -1,4 +1,4 @@
-import { deleteObject, getDownloadURL, ref, uploadBytes } from "firebase/storage";
+import { deleteObject, getDownloadURL, listAll, ref, uploadBytes } from "firebase/storage";
 import { storage } from "./firebase-client";
 
 export async function uploadMedicationAttachment(uid, medicationId, file) {
@@ -17,4 +17,19 @@ export async function uploadMedicationAttachment(uid, medicationId, file) {
 
 export async function deleteAttachmentPath(path) {
   await deleteObject(ref(storage, path));
+}
+
+export async function listMedicationAttachmentPaths(uid) {
+  const folderRef = ref(storage, `users/${uid}/medications`);
+  const paths = await listAttachmentPaths(folderRef);
+  return paths.filter((path) => path.startsWith(`users/${uid}/medications/`));
+}
+
+async function listAttachmentPaths(folderRef) {
+  const result = await listAll(folderRef);
+  const nestedPaths = await Promise.all(result.prefixes.map((prefixRef) => listAttachmentPaths(prefixRef)));
+  return [
+    ...result.items.map((itemRef) => itemRef.fullPath),
+    ...nestedPaths.flat(),
+  ];
 }

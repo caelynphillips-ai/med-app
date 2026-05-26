@@ -1,15 +1,26 @@
 export const colors = {
-  primary: "#7A9D8E",
-  secondary: "#5F7D73",
-  background: "#EAF7F6",
-  surface: "#6CA692",
-  accent: "#C9A66B",
-  alert: "#C97B63",
-  text: "#3F463F",
-  light: "#CCF0ED",
-  white: "#F7F2EA",
-  border: "rgba(63, 70, 63, 0.22)",
-  mutedText: "rgba(63, 70, 63, 0.72)",
+  primary: "#0080FF",
+  darkPrimary: "#0066CC",
+  primarySoft: "#D8ECFF",
+  secondary: "#0066CC",
+  background: "#F7FBFF",
+  surface: "#FFFFFF",
+  cardEmphasis: "#0080FF",
+  cardEmphasisAlt: "#0066CC",
+  onEmphasisMuted: "rgba(247, 251, 255, 0.86)",
+  accent: "#D8B36A",
+  accentSoft: "#F2E4C0",
+  accentTeal: "#CFEAE6",
+  success: "#5FAE7B",
+  successSoft: "#DFF1E6",
+  alert: "#D97A5C",
+  alertSoft: "#F8DED5",
+  text: "#243447",
+  light: "#CFEAE6",
+  white: "#FDFCF8",
+  onPrimary: "#FDFCF8",
+  border: "#DCE7F3",
+  mutedText: "#6C7A89",
 };
 
 export const spacing = {
@@ -37,6 +48,6 @@ export const typography = {
 
 export const shadows = {
   card: {
-    boxShadow: "0 6px 14px rgba(63, 70, 63, 0.14)",
+    boxShadow: "0 12px 28px rgba(36, 52, 71, 0.13)",
   },
 };

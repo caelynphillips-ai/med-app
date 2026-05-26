@@ -49,7 +49,7 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   text: {
-    color: colors.text,
+    color: colors.onPrimary,
     fontSize: typography.body,
     fontWeight: "900",
   },

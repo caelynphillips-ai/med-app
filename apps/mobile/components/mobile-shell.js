@@ -6,12 +6,12 @@ import { colors, radius, spacing, typography } from "../theme/tokens.js";
 
 export function MobileShell({ activeRoute, children, error, onNavigate, user, onGoogleSignIn, onPreviewSignIn, onSignOut, busy }) {
   const isPreviewSession = Boolean(user?.isAnonymous);
-  const authTitle = user ? (isPreviewSession ? "Preview mode active" : user.displayName || "Signed in") : "Mobile organizer";
+  const authTitle = user ? (isPreviewSession ? "Preview mode active" : user.displayName || "Signed in") : "Organize your daily care.";
   const authSubtitle = user
     ? isPreviewSession
-      ? "Temporary anonymous Firebase session. Medications save to this preview account."
+      ? "Temporary device session for testing. It is not connected to Google."
       : user.email || "Firebase session active"
-    : "Use Preview mode for temporary saving, or Google on web.";
+    : "Keep track of medications, vitamins, supplements, reminders, and refills in one organized place. Preview mode is a temporary device session for testing.";
 
   return (
     <View style={styles.shell}>
@@ -68,8 +68,8 @@ export function MobileShell({ activeRoute, children, error, onNavigate, user, on
                 onPress={() => onNavigate({ route: item.route })}
                 style={[styles.navItem, active && styles.navItemActive]}
               >
-                <Text style={styles.navIcon}>{item.icon}</Text>
-                <Text style={styles.navLabel}>{item.label}</Text>
+                <Text style={[styles.navIcon, active && styles.navIconActive]}>{item.icon}</Text>
+                <Text style={[styles.navLabel, active && styles.navLabelActive]}>{item.label}</Text>
               </Pressable>
             );
           })}
@@ -88,22 +88,24 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   authButton: {
-    backgroundColor: colors.accent,
+    backgroundColor: colors.primary,
     borderCurve: "continuous",
     borderRadius: radius.pill,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
   },
   authButtonText: {
-    color: colors.text,
+    color: colors.onPrimary,
     fontSize: typography.small,
     fontWeight: "900",
   },
   authRow: {
     alignItems: "center",
-    backgroundColor: colors.light,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderCurve: "continuous",
     borderRadius: radius.lg,
+    borderWidth: 1,
     flexDirection: "row",
     flexWrap: "wrap",
     gap: spacing.md,
@@ -130,7 +132,7 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xl * 2,
   },
   error: {
-    backgroundColor: "rgba(201, 123, 99, 0.22)",
+    backgroundColor: colors.alertSoft,
     borderColor: colors.alert,
     borderCurve: "continuous",
     borderRadius: radius.md,
@@ -144,6 +146,8 @@ const styles = StyleSheet.create({
   },
   nav: {
     backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderWidth: 1,
     borderCurve: "continuous",
     borderRadius: radius.lg,
     flexDirection: "row",
@@ -152,12 +156,25 @@ const styles = StyleSheet.create({
     padding: spacing.sm,
   },
   navIcon: {
-    color: colors.text,
+    backgroundColor: colors.primarySoft,
+    borderRadius: radius.pill,
+    color: colors.darkPrimary,
     fontSize: typography.small,
     fontWeight: "900",
+    height: 28,
+    lineHeight: 28,
+    overflow: "hidden",
+    textAlign: "center",
+    width: 28,
+  },
+  navIconActive: {
+    backgroundColor: colors.onPrimary,
+    color: colors.darkPrimary,
   },
   navItem: {
     alignItems: "center",
+    borderColor: "transparent",
+    borderWidth: 1,
     borderCurve: "continuous",
     borderRadius: radius.pill,
     flexGrow: 1,
@@ -169,12 +186,17 @@ const styles = StyleSheet.create({
     minHeight: 48,
   },
   navItemActive: {
-    backgroundColor: colors.light,
+    backgroundColor: colors.cardEmphasis,
+    borderColor: colors.darkPrimary,
+    borderWidth: 1,
   },
   navLabel: {
     color: colors.text,
     fontSize: typography.small,
     fontWeight: "900",
+  },
+  navLabelActive: {
+    color: colors.onPrimary,
   },
   shell: {
     backgroundColor: colors.background,

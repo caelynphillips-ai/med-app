@@ -11,6 +11,14 @@ service firebase.storage {
         && request.resource.contentType.matches("image/.*|application/pdf|application/octet-stream");
     }
 
+    match /users/{userId}/medications {
+      allow list: if isOwner(userId);
+    }
+
+    match /users/{userId}/medications/{medicationId} {
+      allow list: if isOwner(userId);
+    }
+
     match /users/{userId}/medications/{medicationId}/{fileName} {
       allow read, delete: if isOwner(userId);
       allow create, update: if isOwner(userId) && validAttachment();

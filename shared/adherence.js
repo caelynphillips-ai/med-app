@@ -2,6 +2,8 @@ import { todayKey } from "./dateTime.js";
 import { persistedDoseStatuses } from "./medicationSchema.js";
 import { doseKey, normalizedSchedule } from "./schedule.js";
 
+export const deletedMedicationHistoryLabel = "Deleted medication";
+
 export function parseDateKey(dateKey) {
   const [year, month, day] = String(dateKey || "").split("-").map(Number);
   return new Date(year || 1970, (month || 1) - 1, day || 1, 12, 0, 0, 0);
@@ -83,16 +85,46 @@ export function getRecentMissedDoses(dateKeys, statusRecordsByDate = {}, medicat
     .flatMap((dateKey) =>
       Object.entries(statusRecordsByDate[dateKey] || {})
         .filter(([, entry]) => entry?.status === "missed")
-        .map(([key, entry]) => ({
-          dateKey,
-          key,
-          medicationName: lookup[key]?.medicationName || "Unknown medication",
-          slotLabel: lookup[key]?.slotLabel || "Dose",
-          time: lookup[key]?.time || "",
-          updatedAt: entry?.updatedAt || "",
-        })),
+        .map(([key, entry]) => {
+          const dose = lookup[key];
+          return {
+            dateKey,
+            isDeletedMedication: !dose,
+            key,
+            medicationName: dose?.medicationName || deletedMedicationHistoryLabel,
+            slotLabel: dose?.slotLabel || "",
+            time: dose?.time || "",
+            updatedAt: entry?.updatedAt || "",
+          };
+        }),
     )
     .slice(0, limit);
+}
+
+export function formatMissedDoseTitle(dose) {
+  const medicationName = normalizeMedicationHistoryName(dose?.medicationName, dose?.isDeletedMedication);
+  const slotLabel = String(dose?.slotLabel || "").trim();
+  if (!slotLabel || isGenericDoseSlotLabel(slotLabel)) {
+    return medicationName;
+  }
+  return `${medicationName} - ${slotLabel}`;
+}
+
+export function hasDeletedMedicationHistory(doses = []) {
+  return doses.some((dose) => dose?.isDeletedMedication || normalizeMedicationHistoryName(dose?.medicationName) === deletedMedicationHistoryLabel);
+}
+
+function normalizeMedicationHistoryName(value, deleted = false) {
+  const name = String(value || "").trim();
+  if (deleted || !name || name.toLowerCase() === "unknown medication") {
+    return deletedMedicationHistoryLabel;
+  }
+  return name;
+}
+
+function isGenericDoseSlotLabel(value) {
+  const label = String(value || "").trim().toLowerCase();
+  return !label || label === "dose";
 }
 
 function buildDoseLookup(medications) {

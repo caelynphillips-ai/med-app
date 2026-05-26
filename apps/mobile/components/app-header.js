@@ -1,16 +1,18 @@
 import React from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Image, StyleSheet, Text, View } from "react-native";
 import { colors, radius, spacing, typography } from "../theme/tokens.js";
+
+const azurWellMark = require("../../../assets/brand/azur-well-mark.png");
 
 export function AppHeader() {
   return (
     <View style={styles.header}>
-      <View style={styles.logo} accessible accessibilityLabel="Med Organizer logo">
-        <Text style={styles.logoText}>M</Text>
+      <View style={styles.logo} accessible accessibilityLabel="Azur Well logo">
+        <Image source={azurWellMark} resizeMode="contain" style={styles.logoImage} />
       </View>
       <View style={styles.headerText}>
         <Text selectable style={styles.title}>
-          Med Organizer
+          Azur Well
         </Text>
         <Text selectable style={styles.subtitle}>
           Medication and vitamin schedule
@@ -31,17 +33,19 @@ const styles = StyleSheet.create({
   },
   logo: {
     alignItems: "center",
-    backgroundColor: colors.primary,
+    backgroundColor: colors.light,
     borderCurve: "continuous",
+    borderColor: colors.border,
+    borderWidth: 1,
     borderRadius: radius.md,
-    height: 48,
+    height: 54,
     justifyContent: "center",
-    width: 48,
+    padding: 8,
+    width: 54,
   },
-  logoText: {
-    color: colors.text,
-    fontSize: typography.body,
-    fontWeight: "900",
+  logoImage: {
+    height: "100%",
+    width: "100%",
   },
   subtitle: {
     color: colors.secondary,

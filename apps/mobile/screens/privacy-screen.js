@@ -1,43 +1,35 @@
 import React from "react";
-import { Alert, Share, StyleSheet, Text, View } from "react-native";
+import { Alert, Share, StyleSheet, Text, TextInput, View } from "react-native";
 import { medicalDisclaimer } from "../../../shared/medicationSchema.js";
-import {
-  buildMedicationDataExport,
-  buildMedicationExportJson,
-  buildMedicationListTextExport,
-} from "../../../shared/dataExport.js";
+import { buildMedicationListTextExport } from "../../../shared/dataExport.js";
 import { ActionButton } from "../components/action-button.js";
 import { describeMobileError, logMobileError } from "../services/mobile-error.js";
 import { colors, radius, shadows, spacing, typography } from "../theme/tokens.js";
 
-export function PrivacyScreen({ busy, historyStatuses, medications, onSignOut, user }) {
+export function PrivacyScreen({ busy, medications, onDeleteAccount, onSignOut, user }) {
   const [exporting, setExporting] = React.useState(false);
+  const [deleting, setDeleting] = React.useState(false);
+  const [deleteConfirmation, setDeleteConfirmation] = React.useState("");
+  const [deleteError, setDeleteError] = React.useState("");
   const [exportError, setExportError] = React.useState("");
+  const [exportMessage, setExportMessage] = React.useState("");
   const isPreviewSession = Boolean(user?.isAnonymous);
-  const disabled = busy || exporting;
+  const disabled = busy || exporting || deleting;
+  const deleteReady = deleteConfirmation === "DELETE";
 
-  async function shareExport(format) {
+  async function shareExport() {
     setExporting(true);
     setExportError("");
+    setExportMessage("");
     try {
       const generatedAt = new Date().toISOString();
-      const message =
-        format === "text"
-          ? buildMedicationListTextExport({ generatedAt, medications })
-          : buildMedicationExportJson(
-              buildMedicationDataExport({
-                doseStatusHistory: historyStatuses,
-                generatedAt,
-                medications,
-                source: "expo-mobile",
-                user,
-              }),
-            );
+      const message = buildMedicationListTextExport({ generatedAt, medications });
 
       await Share.share({
         message,
-        title: format === "text" ? "Med Organizer medication list" : "Med Organizer data export",
+        title: "Azur Well medication list",
       });
+      setExportMessage("Readable medication list is ready to share.");
     } catch (error) {
       logMobileError("Data export share failed", error);
       const messageText = describeMobileError(error, "Exporting data");
@@ -45,6 +37,41 @@ export function PrivacyScreen({ busy, historyStatuses, medications, onSignOut, u
       Alert.alert("Export data", messageText);
     } finally {
       setExporting(false);
+    }
+  }
+
+  function requestAccountDeletion() {
+    if (!deleteReady) {
+      setDeleteError("Type DELETE before deleting your account.");
+      return;
+    }
+
+    Alert.alert(
+      "Delete your account",
+      "This permanently deletes your medications, dose history, settings, and uploaded attachments.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete account",
+          style: "destructive",
+          onPress: deleteAccount,
+        },
+      ],
+    );
+  }
+
+  async function deleteAccount() {
+    setDeleting(true);
+    setDeleteError("");
+    try {
+      await onDeleteAccount();
+      setDeleteConfirmation("");
+    } catch (error) {
+      const message = error?.message || describeMobileError(error, "Deleting account");
+      setDeleteError(message);
+      Alert.alert("Delete account", message);
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -58,7 +85,7 @@ export function PrivacyScreen({ busy, historyStatuses, medications, onSignOut, u
           Privacy
         </Text>
         <Text selectable style={styles.subtitle}>
-          Export data and review how your organizer stores information.
+          Download your medication list and review important privacy information.
         </Text>
       </View>
 
@@ -66,32 +93,19 @@ export function PrivacyScreen({ busy, historyStatuses, medications, onSignOut, u
 
       <View style={styles.card}>
         <Text selectable style={styles.cardTitle}>
-          Data storage
-        </Text>
-        <InfoRow label="Account" value={user?.email || user?.displayName || (isPreviewSession ? "Preview mode" : "Not signed in")} />
-        <InfoRow
-          label="Storage"
-          value="Medication records and dose statuses are saved in Firebase for the current account."
-        />
-        <InfoRow
-          label="Attachments"
-          value="Exports include attachment metadata, but not uploaded label photos or files."
-        />
-      </View>
-
-      <View style={styles.card}>
-        <Text selectable style={styles.cardTitle}>
-          Export data
+          Export readable list
         </Text>
         <Text selectable style={styles.body}>
-          Export medications, schedules, notes, instructions, refill tracking, reminder settings, attachment metadata, and recent dose status history.
+          Download a readable copy of your medications, schedule, notes, and details.
         </Text>
+        <View style={styles.checklist}>
+          <Text selectable style={styles.checkItem}>Medication details, schedules, instructions, and notes</Text>
+          <Text selectable style={styles.checkItem}>Reminder and refill tracking settings</Text>
+          <Text selectable style={styles.checkItem}>Attachment metadata and recent dose history</Text>
+        </View>
         <View style={styles.buttonRow}>
-          <ActionButton disabled={disabled} onPress={() => shareExport("json")}>
-            {exporting ? "Preparing..." : "Export JSON"}
-          </ActionButton>
-          <ActionButton disabled={disabled} tone="quiet" onPress={() => shareExport("text")}>
-            Readable list
+          <ActionButton disabled={disabled} onPress={shareExport}>
+            {exporting ? "Preparing..." : "Export readable list"}
           </ActionButton>
         </View>
         {exportError ? (
@@ -99,25 +113,52 @@ export function PrivacyScreen({ busy, historyStatuses, medications, onSignOut, u
             {exportError}
           </Text>
         ) : null}
+        {exportMessage ? (
+          <Text selectable style={styles.successText}>
+            {exportMessage}
+          </Text>
+        ) : null}
       </View>
 
-      <View style={styles.card}>
-        <Text selectable style={styles.cardTitle}>
-          Preview mode
-        </Text>
-        <Text selectable style={styles.body}>
-          Preview mode uses a temporary anonymous Firebase account on this device. It does not sync with a real Google account until native Google sign-in is configured.
-        </Text>
-      </View>
+      {isPreviewSession ? (
+        <View style={styles.card}>
+          <Text selectable style={styles.cardTitle}>
+            Preview mode
+          </Text>
+          <Text selectable style={styles.body}>
+            Preview mode uses a temporary device session for testing. It is not connected to Google.
+          </Text>
+        </View>
+      ) : null}
 
-      {/* TODO: Replace this copy with a reauthenticated, irreversible account deletion flow before public launch. */}
-      <View style={styles.card}>
+      <View style={[styles.card, styles.dangerCard]}>
         <Text selectable style={styles.cardTitle}>
-          Account deletion
+          Delete your account
         </Text>
         <Text selectable style={styles.body}>
-          Secure account deletion is not active yet. Before public launch, this flow should remove the signed-in user's medications, dose statuses, app settings, and Storage attachments after a clear confirmation step.
+          This permanently deletes your medications, dose history, settings, and uploaded attachments.
         </Text>
+        <Text selectable style={styles.confirmLabel}>
+          Type DELETE to confirm
+        </Text>
+        <TextInput
+          autoCapitalize="characters"
+          autoCorrect={false}
+          editable={!disabled}
+          onChangeText={setDeleteConfirmation}
+          placeholder="DELETE"
+          placeholderTextColor={colors.mutedText}
+          style={styles.input}
+          value={deleteConfirmation}
+        />
+        <ActionButton disabled={disabled || !deleteReady} tone="danger" onPress={requestAccountDeletion}>
+          {deleting ? "Deleting..." : "Delete account"}
+        </ActionButton>
+        {deleteError ? (
+          <Text selectable style={styles.errorText}>
+            {deleteError}
+          </Text>
+        ) : null}
       </View>
 
       <ActionButton disabled={disabled} tone="quiet" onPress={onSignOut}>
@@ -135,19 +176,6 @@ function InfoCard({ body, title }) {
       </Text>
       <Text selectable style={styles.body}>
         {body}
-      </Text>
-    </View>
-  );
-}
-
-function InfoRow({ label, value }) {
-  return (
-    <View style={styles.infoRow}>
-      <Text selectable style={styles.infoLabel}>
-        {label}
-      </Text>
-      <Text selectable style={styles.infoValue}>
-        {value}
       </Text>
     </View>
   );
@@ -177,6 +205,30 @@ const styles = StyleSheet.create({
     fontSize: typography.heading,
     fontWeight: "900",
   },
+  confirmLabel: {
+    color: colors.text,
+    fontSize: typography.small,
+    fontWeight: "900",
+  },
+  dangerCard: {
+    borderColor: colors.alert,
+    borderWidth: 1,
+  },
+  checkItem: {
+    color: colors.text,
+    fontSize: typography.small,
+    fontWeight: "800",
+    lineHeight: 19,
+  },
+  checklist: {
+    backgroundColor: colors.primarySoft,
+    borderColor: colors.border,
+    borderCurve: "continuous",
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    gap: spacing.xs,
+    padding: spacing.md,
+  },
   eyebrow: {
     color: colors.primary,
     fontSize: typography.label,
@@ -189,25 +241,24 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     lineHeight: 18,
   },
-  infoLabel: {
-    color: colors.text,
-    fontSize: typography.label,
-    fontWeight: "900",
-  },
-  infoRow: {
-    backgroundColor: "rgba(204, 240, 237, 0.28)",
+  input: {
+    backgroundColor: colors.background,
     borderColor: colors.border,
     borderCurve: "continuous",
     borderRadius: radius.sm,
     borderWidth: 1,
-    gap: spacing.xs,
-    padding: spacing.md,
-  },
-  infoValue: {
     color: colors.text,
     fontSize: typography.body,
     fontWeight: "800",
-    lineHeight: 22,
+    minHeight: 48,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  successText: {
+    color: colors.text,
+    fontSize: typography.small,
+    fontWeight: "900",
+    lineHeight: 18,
   },
   screen: {
     gap: spacing.lg,

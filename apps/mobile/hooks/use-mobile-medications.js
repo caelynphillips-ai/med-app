@@ -4,6 +4,7 @@ import { MEDICATION_SCHEMA_VERSION } from "../../../shared/medicationSchema.js";
 import { todayKey } from "../../../shared/dateTime.js";
 import { getRecentDateKeys } from "../../../shared/adherence.js";
 import { observeAuthState, signInWithGoogle, signOutUser, startFirebasePreviewSession } from "../services/auth-service.js";
+import { deleteCurrentAccount } from "../services/account-deletion-service.js";
 import {
   getDoseStatusHistoryRecords,
   saveDoseStatusRecord,
@@ -23,7 +24,6 @@ import {
   rescheduleMedicationNotifications,
   syncMedicationNotifications,
 } from "../services/notification-service.js";
-import { ensureSampleData } from "../services/sample-data-service.js";
 import { deleteAttachmentPath } from "../services/storage-service.js";
 
 export function useMobileMedications() {
@@ -67,7 +67,6 @@ export function useMobileMedications() {
       setLoadingMeds(true);
       setError("");
       try {
-        await ensureSampleData(user);
         if (cancelled) {
           return;
         }
@@ -190,6 +189,40 @@ export function useMobileMedications() {
     }
   }
 
+  async function deleteAccount() {
+    if (!user) {
+      const message = "Sign in before deleting your account.";
+      setError(message);
+      throw new Error(message);
+    }
+
+    setBusy(true);
+    setError("");
+    try {
+      await deleteCurrentAccount(user);
+      try {
+        await cancelAllMedicationNotifications();
+      } catch (err) {
+        logMobileError("Notification cleanup failed during account deletion", err);
+      }
+      setError("");
+    } catch (err) {
+      if (err?.dataDeleted) {
+        try {
+          await cancelAllMedicationNotifications();
+        } catch (notificationError) {
+          logMobileError("Notification cleanup failed after partial account deletion", notificationError);
+        }
+      }
+      logMobileError("Account deletion failed", err);
+      const message = describeMobileError(err, "Deleting account");
+      setError(message);
+      throw new Error(message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function saveMedication(medication, existingId = "") {
     if (!user) {
       throw new Error("Use Preview mode before saving medications. Google sign-in is not configured on native Android yet.");
@@ -206,7 +239,7 @@ export function useMobileMedications() {
       dosage: medication.dosage || "",
       timesPerDay: Number(medication.timesPerDay) || 1,
       schedule: Array.isArray(medication.schedule) ? medication.schedule : [],
-      intake: medication.intake || "water",
+      intake: medication.intake || "",
       foodInstructions: medication.foodInstructions || "",
       notes: medication.notes || "",
       quantityRemaining: medication.quantityRemaining ?? null,
@@ -326,6 +359,7 @@ export function useMobileMedications() {
     continueWithFirebasePreview,
     continueWithGoogle,
     dateKey,
+    deleteAccount,
     deleteMedication,
     error,
     historyLoading,

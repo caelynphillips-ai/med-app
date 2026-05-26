@@ -4,7 +4,7 @@ import {
   normalizeCategory,
 } from "./rxterms.js";
 import { categories, CLIENT_NAME, intakeLabels, MEDICATION_SCHEMA_VERSION, slotDefinitions } from "./config/constants.js";
-import { sampleMedications } from "./data/sampleMedications.js";
+import { deleteCurrentAccount } from "./services/accountDeletionService.js";
 import { observeAuthState, signInWithGoogle, signOutUser } from "./services/authService.js";
 import {
   getDoseStatusHistoryRecords,
@@ -18,7 +18,6 @@ import {
   subscribeToMedicationRecords,
   updateMedicationAttachment,
 } from "./services/medicationRepository.js";
-import { ensureSampleData } from "./services/sampleDataService.js";
 import { findMedicationRecordByName as findMedicationRecordInSources, getMedicationSuggestions as searchMedicationSuggestions, loadMedicationDatabase as fetchMedicationDatabase } from "./services/suggestionService.js";
 import { deleteAttachmentPath, uploadMedicationAttachment } from "./services/storageService.js";
 import { commonUseLabel, commonUseValue, parseCommonUses } from "./utils/commonUses.js";
@@ -43,7 +42,9 @@ import {
 import {
   buildAdherenceSummary,
   formatHistoryDateLabel,
+  formatMissedDoseTitle,
   getRecentDateKeys,
+  hasDeletedMedicationHistory,
 } from "../shared/adherence.js";
 import {
   buildMedicationDataExport,
@@ -83,6 +84,7 @@ const state = {
   liveSuggestions: [],
   liveSuggestionStatus: "idle",
   medicationListControls: defaultMedicationListControls(),
+  accountDeleteConfirmation: "",
 };
 
 void loadMedicationDatabase();
@@ -99,18 +101,13 @@ observeAuthState(async (user) => {
   state.historyStatuses = {};
   state.historyLoading = false;
   state.historyLoaded = false;
+  state.accountDeleteConfirmation = "";
   state.selectedMedId = null;
   state.editMode = false;
   render();
 
   if (!user) {
     return;
-  }
-
-  try {
-    await ensureSampleData(user);
-  } catch (error) {
-    showToast(messageFromError(error), "error");
   }
 
   if (token !== state.authReadyToken) {
@@ -220,6 +217,10 @@ root.addEventListener("click", async (event) => {
   if (action === "export-medication-text") {
     await exportAccountData("text");
   }
+
+  if (action === "delete-account") {
+    await deleteAccount();
+  }
 });
 
 root.addEventListener("input", (event) => {
@@ -234,6 +235,22 @@ root.addEventListener("input", (event) => {
   if (event.target.matches("#med-list-search")) {
     state.medicationListControls.query = event.target.value;
     updateMedicationListResults();
+  }
+
+  if (event.target.matches("#account-delete-confirm")) {
+    state.accountDeleteConfirmation = event.target.value;
+    const deleteButton = root.querySelector('[data-action="delete-account"]');
+    if (deleteButton) {
+      deleteButton.disabled = state.busy || state.accountDeleteConfirmation !== "DELETE";
+    }
+  }
+});
+
+root.addEventListener("pointerdown", (event) => {
+  const intakeCard = event.target.closest(".radio-card");
+  const intakeInput = intakeCard?.querySelector('input[name="intake"]');
+  if (intakeInput) {
+    intakeInput.dataset.wasChecked = intakeInput.checked ? "true" : "false";
   }
 });
 
@@ -254,6 +271,13 @@ root.addEventListener("focusin", (event) => {
 });
 
 root.addEventListener("keydown", (event) => {
+  if (event.target.matches('input[name="intake"]') && (event.key === " " || event.key === "Enter") && event.target.checked) {
+    event.preventDefault();
+    event.target.checked = false;
+    event.target.dataset.wasChecked = "false";
+    return;
+  }
+
   if (!event.target.matches("#name")) {
     return;
   }
@@ -273,6 +297,12 @@ root.addEventListener("submit", async (event) => {
 document.addEventListener("click", (event) => {
   if (!event.target.closest(".autocomplete-field")) {
     closeMedicationSuggestions();
+  }
+
+  const intakeInput = event.target.closest('input[name="intake"]');
+  if (intakeInput?.dataset.wasChecked === "true") {
+    intakeInput.checked = false;
+    intakeInput.dataset.wasChecked = "false";
   }
 });
 
@@ -388,7 +418,7 @@ async function saveMedication(form) {
     dosage: cleanText(formData.get("dosage")),
     timesPerDay,
     schedule: selectedSchedule,
-    intake: formData.get("intake"),
+    intake: formData.get("intake") || "",
     foodInstructions: cleanText(formData.get("foodInstructions")),
     notes: cleanText(formData.get("notes")),
     quantityRemaining,
@@ -404,8 +434,8 @@ async function saveMedication(form) {
     updatedFrom: CLIENT_NAME,
   };
 
-  if (!payload.name || !payload.purpose || !payload.dosage) {
-    showToast("Name, purpose, and dosage are required.", "error");
+  if (!payload.name) {
+    showToast("Medication name is required.", "error");
     return;
   }
 
@@ -580,6 +610,41 @@ async function exportAccountData(format) {
   }
 }
 
+async function deleteAccount() {
+  if (!state.user) {
+    showToast("Please sign in before deleting your account.", "error");
+    return;
+  }
+
+  if (state.accountDeleteConfirmation !== "DELETE") {
+    showToast("Type DELETE before deleting your account.", "error");
+    return;
+  }
+
+  const confirmed = window.confirm(
+    "Permanently delete your Azur Well account? This deletes your medications, dose history, settings, and uploaded attachments.",
+  );
+  if (!confirmed) {
+    return;
+  }
+
+  setBusy(true);
+  try {
+    await deleteCurrentAccount(state.user);
+    cleanupSubscriptions();
+    state.accountDeleteConfirmation = "";
+    showToast("Account deleted.");
+  } catch (error) {
+    const message =
+      error?.dataDeleted && error?.code === "auth/requires-recent-login"
+        ? "Your account data was deleted, but Firebase needs a fresh sign-in to delete the sign-in account. Sign out, sign back in, then try deleting the account again."
+        : messageFromError(error);
+    showToast(message, "error");
+  } finally {
+    setBusy(false);
+  }
+}
+
 function downloadTextFile(fileName, content, type) {
   const blob = new Blob([content], { type });
   const url = URL.createObjectURL(blob);
@@ -647,8 +712,10 @@ function render() {
   if (state.booting) {
     root.innerHTML = `
       <div class="boot-screen" role="status" aria-live="polite">
-        <div class="boot-mark">M</div>
-        <p>Loading your organizer...</p>
+        <div class="boot-mark" aria-hidden="true">
+          <img src="/assets/brand/azur-well-mark.png" alt="" />
+        </div>
+        <p>Loading Azur Well...</p>
       </div>
     `;
     return;
@@ -675,9 +742,11 @@ function renderTopBar() {
   return `
     <header class="top-app-bar">
       <div class="brand">
-        <div class="brand-mark" aria-hidden="true">M</div>
+        <div class="brand-mark" aria-hidden="true">
+          <img src="/assets/brand/azur-well-mark.png" alt="" />
+        </div>
         <div>
-          <h1>Med Organizer</h1>
+          <h1>Azur Well</h1>
           <p>Medication and vitamin schedule</p>
         </div>
       </div>
@@ -702,35 +771,25 @@ function renderTopBar() {
 }
 
 function renderSignedOutApp() {
-  const previewDoses = sampleMedications
-    .flatMap((med) => med.schedule.map((slot) => ({ med, slot })))
-    .sort((a, b) => minutesFromTime(a.slot.time) - minutesFromTime(b.slot.time));
-
   return `
     <main class="auth-page">
       <section class="auth-hero">
+        <div class="auth-logo-lockup" aria-label="Azur Well">
+          <img src="/assets/brand/azur-well-mark.png" alt="" />
+          <span>Azur Well</span>
+        </div>
         <p class="eyebrow">Personal organizer</p>
-        <h2>Keep daily medications, vitamins, and supplements in one calm place.</h2>
-        <p>Sign in to save your list, track today's doses, upload label photos, and keep notes with each item.</p>
-        <div class="preview-stack" aria-label="Sample schedule preview">
-          ${previewDoses
-            .map(
-              ({ med, slot }) => `
-                <article class="mini-dose">
-                  <span>${escapeHtml(formatClock(slot.time))}</span>
-                  <div>
-                    <strong>${escapeHtml(med.name)}</strong>
-                    <small>${escapeHtml(med.dosage)} - ${escapeHtml(med.purpose)}</small>
-                  </div>
-                </article>
-              `,
-            )
-            .join("")}
+        <h2>Organize your daily care.</h2>
+        <p>Keep track of medications, vitamins, supplements, reminders, and refills in one organized place.</p>
+        <div class="welcome-start-card">
+          <strong>Build your schedule</strong>
+          <span>Add your medications, vitamins, and supplements to get started.</span>
         </div>
       </section>
       <aside class="auth-panel">
-        <h2>Use Google sign-in</h2>
-        <p class="subtle">Your organizer is saved in Firebase for your account. New accounts start with sample data so the dashboard is useful right away.</p>
+        <p class="eyebrow">Welcome</p>
+        <h2>Sign in to begin</h2>
+        <p class="subtle">Save your organizer to your account and keep it with you.</p>
         <button class="button primary full" type="button" data-action="sign-in" ${state.busy ? "disabled" : ""}>Continue with Google</button>
         <div class="notice">
           <strong>Medical disclaimer</strong>
@@ -840,6 +899,12 @@ function renderDashboard() {
   const takenCount = doses.filter((dose) => dose.status === "taken").length;
   const openDoses = doses.filter((dose) => dose.status === "due" || dose.status === "auto-missed");
   const nextDose = openDoses.find((dose) => dose.sortMinutes >= currentMinutes()) || openDoses[0];
+  const remainingCount = Math.max(0, doses.length - takenCount);
+  const hasDoses = doses.length > 0;
+  const heroLabel = nextDose ? "Next dose" : hasDoses ? "Today's progress" : "Start today";
+  const heroTitle = nextDose ? formatClock(nextDose.time) : hasDoses ? "All set" : "No doses yet";
+  const heroDetail = nextDose ? renderNextDoseHeroDetail(nextDose) : escapeHtml(hasDoses ? "No open doses left for today." : "Add your first medication to build today's schedule.");
+  const progressCopy = hasDoses ? `${takenCount} of ${doses.length} taken today` : "Add a medication to begin";
 
   return `
     <section class="page">
@@ -855,6 +920,15 @@ function renderDashboard() {
         </div>
       </div>
 
+      <article class="next-dose-hero">
+        <div>
+          <span class="hero-label">${escapeHtml(heroLabel)}</span>
+          <strong>${escapeHtml(heroTitle)}</strong>
+          <p>${heroDetail}</p>
+        </div>
+        <span class="progress-pill">${escapeHtml(progressCopy)}</span>
+      </article>
+
       <div class="grid stats-grid">
         <article class="stat-card">
           <span>Total doses</span>
@@ -865,8 +939,8 @@ function renderDashboard() {
           <strong>${takenCount}</strong>
         </article>
         <article class="stat-card">
-          <span>Next dose</span>
-          <strong>${nextDose ? escapeHtml(formatClock(nextDose.time)) : "Done"}</strong>
+          <span>Remaining</span>
+          <strong>${remainingCount}</strong>
         </article>
       </div>
 
@@ -876,7 +950,7 @@ function renderDashboard() {
           ${
             doses.length
               ? `<div class="schedule-list">${doses.map(renderDoseCard).join("")}</div>`
-              : renderEmptyState("No doses scheduled yet", "Add a medication with at least one time of day to build today's schedule.", "Add medication")
+              : renderEmptyState("No doses scheduled yet", "Add a medication with at least one time of day to build today's schedule.", "Add your first medication")
           }
         </section>
 
@@ -893,6 +967,19 @@ function renderDashboard() {
   `;
 }
 
+function renderNextDoseHeroDetail(dose) {
+  const dosage = cleanText(dose.med.dosage);
+  return `
+    ${escapeHtml(dose.med.name)}
+    <span aria-hidden="true"> - </span>
+    ${
+      dosage
+        ? escapeHtml(dosage)
+        : renderEmptyActionChip(dose.med.id, "Add dosage")
+    }
+  `;
+}
+
 function renderHistory() {
   const dateKeys = getRecentDateKeys(7);
   const todayStatuses = Object.keys(state.statuses).length ? state.statuses : state.historyStatuses[todayKey()] || {};
@@ -904,7 +991,8 @@ function renderHistory() {
     },
     state.meds,
   );
-  const adherenceValue = summary.adherencePercentage === null ? "No data" : `${summary.adherencePercentage}%`;
+  const adherenceValue = summary.adherencePercentage === null ? "No marked doses" : `${summary.adherencePercentage}%`;
+  const hasDeletedHistory = hasDeletedMedicationHistory(summary.missedDoses);
 
   return `
     <section class="page">
@@ -912,7 +1000,7 @@ function renderHistory() {
         <div>
           <p class="eyebrow">Last 7 days</p>
           <h2 class="page-title">History</h2>
-          ${renderPageIntro("A simple view of the dose statuses you have marked recently.")}
+          ${renderPageIntro("History only includes doses you marked as taken, skipped, or missed.")}
         </div>
         <button class="button tonal" type="button" data-action="navigate" data-view="dashboard">Today</button>
       </div>
@@ -929,8 +1017,12 @@ function renderHistory() {
           <strong>${summary.totals.taken}</strong>
         </article>
         <article class="stat-card">
-          <span>Missed or skipped</span>
-          <strong>${summary.totals.missed + summary.totals.skipped}</strong>
+          <span>Skipped</span>
+          <strong>${summary.totals.skipped}</strong>
+        </article>
+        <article class="stat-card">
+          <span>Missed</span>
+          <strong>${summary.totals.missed}</strong>
         </article>
       </div>
 
@@ -958,10 +1050,15 @@ function renderHistory() {
                         : `<p class="subtle">No missed doses recorded in the last 7 days.</p>`
                     }
                   </div>
+                  ${
+                    hasDeletedHistory
+                      ? `<p class="subtle history-note">Some history may reference medications that were later deleted.</p>`
+                      : ""
+                  }
                 </div>
                 <div class="notice">
                   <strong>How this is calculated</strong>
-                  <span>Adherence is taken doses divided by doses you marked taken, skipped, or missed.</span>
+                  <span>Adherence only uses saved statuses. It is taken doses divided by doses you marked taken, skipped, or missed.</span>
                 </div>
               </aside>
             </div>
@@ -979,14 +1076,13 @@ function renderHistory() {
 }
 
 function renderPrivacy() {
-  const userLabel = state.user?.email || state.user?.displayName || "Signed in";
   return `
     <section class="page">
       <div class="page-header">
         <div>
           <p class="eyebrow">Account and privacy</p>
           <h2 class="page-title">Privacy</h2>
-          ${renderPageIntro("Export your information and review how this organizer stores data.")}
+          ${renderPageIntro("Download your medication list and review important privacy information.")}
         </div>
         <button class="button text" type="button" data-action="sign-out" ${state.busy ? "disabled" : ""}>Sign out</button>
       </div>
@@ -998,41 +1094,44 @@ function renderPrivacy() {
         </article>
 
         <article class="card">
-          <h3 class="section-title">How your data is stored</h3>
-          <div class="reminder-list" style="margin-top: 12px;">
-            <div class="detail-item">
-              <span>Account</span>
-              <strong>${escapeHtml(userLabel)}</strong>
-            </div>
-            <div class="detail-item">
-              <span>Storage</span>
-              <strong>Medication records and dose statuses are saved in Firebase for your signed-in account.</strong>
-            </div>
-            <div class="detail-item">
-              <span>Attachments</span>
-              <strong>Label photos or files are saved in Firebase Storage. Exports include attachment metadata, not the actual files.</strong>
-            </div>
-          </div>
-        </article>
-
-        <article class="card">
-          <h3 class="section-title">Export data</h3>
-          <p class="subtle">Download your medications, schedules, notes, instructions, refill tracking, reminder settings, attachment metadata, and the last 7 days of dose status history.</p>
+          <h3 class="section-title">Export readable list</h3>
+          <p class="subtle">Download a readable copy of your medications, schedule, notes, and details.</p>
+          <ul class="export-checklist" aria-label="Export includes">
+            <li>Medication details, schedules, instructions, and notes</li>
+            <li>Reminder and refill tracking settings</li>
+            <li>Attachment metadata and recent dose history</li>
+          </ul>
           <div class="toolbar" style="margin-top: 14px;">
-            <button class="button primary" type="button" data-action="export-data-json" ${state.busy ? "disabled" : ""}>Export JSON</button>
-            <button class="button tonal" type="button" data-action="export-medication-text" ${state.busy ? "disabled" : ""}>Export readable list</button>
+            <button class="button primary" type="button" data-action="export-medication-text" ${state.busy ? "disabled" : ""}>Export readable list</button>
           </div>
         </article>
 
         <article class="notice">
           <strong>Export note</strong>
-          <span>The readable list is a medication summary only. Use JSON when you want the fuller account data export.</span>
+          <span>Download a readable copy of your medications, schedule, notes, and details.</span>
         </article>
 
-        <!-- TODO: Replace this copy with a reauthenticated, irreversible account deletion flow before public launch. -->
-        <article class="card">
-          <h3 class="section-title">Account deletion</h3>
-          <p class="subtle">Secure account deletion is not active yet. Before public launch, this flow should delete the signed-in user's medications, dose statuses, app settings, and Storage attachments after a clear confirmation step.</p>
+        <article class="card danger-zone">
+          <h3 class="section-title">Delete your account</h3>
+          <p class="subtle">This permanently deletes your medications, dose history, settings, and uploaded attachments.</p>
+          <div class="field">
+            <label for="account-delete-confirm">Type DELETE to confirm</label>
+            <input
+              id="account-delete-confirm"
+              value="${escapeAttribute(state.accountDeleteConfirmation)}"
+              autocomplete="off"
+              autocapitalize="characters"
+              spellcheck="false"
+              placeholder="DELETE"
+              ${state.busy ? "disabled" : ""}
+            />
+          </div>
+          <button
+            class="button danger"
+            type="button"
+            data-action="delete-account"
+            ${state.busy || state.accountDeleteConfirmation !== "DELETE" ? "disabled" : ""}
+          >${state.busy ? "Deleting..." : "Delete account"}</button>
         </article>
       </div>
     </section>
@@ -1040,7 +1139,7 @@ function renderPrivacy() {
 }
 
 function renderHistoryDay(day) {
-  const percent = day.adherencePercentage === null ? "No data" : `${day.adherencePercentage}%`;
+  const percent = day.adherencePercentage === null ? "No marked doses" : `${day.adherencePercentage}%`;
   return `
     <article class="history-day-card">
       <div>
@@ -1061,7 +1160,7 @@ function renderMissedDose(dose) {
   return `
     <div class="detail-item">
       <span>${escapeHtml(formatHistoryDateLabel(dose.dateKey))}${escapeHtml(time)}</span>
-      <strong>${escapeHtml(dose.medicationName)} - ${escapeHtml(dose.slotLabel)}</strong>
+      <strong>${escapeHtml(formatMissedDoseTitle(dose))}</strong>
     </div>
   `;
 }
@@ -1069,6 +1168,12 @@ function renderMissedDose(dose) {
 function renderDoseCard(dose) {
   const status = dose.status;
   const displayStatus = status === "auto-missed" ? "missed" : status;
+  const intakeText = intakeLabels[dose.med.intake] || "Add intake note";
+  const filledDoseDetails = [cleanText(dose.med.dosage), cleanText(dose.med.purpose)].filter(Boolean).join(" - ");
+  const missingDoseActions = [
+    cleanText(dose.med.dosage) ? "" : renderEmptyActionChip(dose.med.id, "Add dosage"),
+    cleanText(dose.med.purpose) ? "" : renderEmptyActionChip(dose.med.id, "Add purpose"),
+  ].join("");
   return `
     <article class="schedule-card">
       <div class="dose-time">
@@ -1079,13 +1184,18 @@ function renderDoseCard(dose) {
         <div class="dose-heading">
           <div>
             <h3>${escapeHtml(dose.med.name)}</h3>
-            <p class="subtle">${escapeHtml(dose.med.dosage)} - ${escapeHtml(dose.med.purpose)}</p>
+            ${filledDoseDetails ? `<p class="subtle">${escapeHtml(filledDoseDetails)}</p>` : ""}
+            ${missingDoseActions ? `<div class="empty-action-row">${missingDoseActions}</div>` : ""}
           </div>
           <span class="chip ${escapeHtml(dose.med.category)}">${escapeHtml(categories[dose.med.category] || dose.med.category)}</span>
         </div>
         <div class="chip-row">
           <span class="status-pill ${displayStatus}">${escapeHtml(statusLabel(status))}</span>
-          <span class="chip">${escapeHtml(intakeLabels[dose.med.intake] || "No intake note")}</span>
+          ${
+            cleanText(intakeLabels[dose.med.intake])
+              ? `<span class="chip">${escapeHtml(intakeText)}</span>`
+              : renderEmptyActionChip(dose.med.id, "Add intake note")
+          }
           ${
             dose.med.reminder?.enabled
               ? `<span class="chip">Reminder ${Number(dose.med.reminder.leadMinutes) || 15} min before</span>`
@@ -1178,7 +1288,7 @@ function renderMedicationListSelect(label, key, value, options) {
 
 function renderMedicationListResults(visibleMeds = getVisibleMedications()) {
   if (state.meds.length === 0) {
-    return renderEmptyState("No medications saved", "Add a prescription, over-the-counter medicine, vitamin, or supplement.", "Add medication");
+    return renderEmptyState("No medications saved", "Add a prescription, over-the-counter medicine, vitamin, or supplement.", "Add your first medication");
   }
 
   if (visibleMeds.length === 0) {
@@ -1244,33 +1354,56 @@ function renderMedicationListCount(visibleCount) {
 }
 
 function renderMedicationCard(med) {
-  const times = normalizedSchedule(med)
-    .map((slot) => `${slot.label} ${formatClock(slot.time)}`)
-    .join(", ");
+  const schedule = normalizedSchedule(med);
+  const nextSlot = schedule[0];
+  const times = schedule.map((slot) => `${slot.label} ${formatClock(slot.time)}`).join(", ");
   const refillInfo = getRefillInfo(med);
+  const hasPurpose = Boolean(cleanText(med.purpose));
+  const hasDosage = Boolean(cleanText(med.dosage));
+  const hasNotes = Boolean(cleanText(med.notes));
   return `
     <article class="card med-card">
-      <div class="med-card-footer">
-        <div>
+      <div class="med-card-header">
+        <div class="med-card-title">
           <h3>${escapeHtml(med.name)}</h3>
-          <p class="subtle">${escapeHtml(med.purpose)}</p>
+          ${
+            hasPurpose
+              ? `<p class="subtle med-purpose">${escapeHtml(med.purpose)}</p>`
+              : `<div class="empty-action-row">${renderEmptyActionChip(med.id, "Add purpose")}</div>`
+          }
         </div>
         <span class="chip ${escapeHtml(med.category)}">${escapeHtml(categories[med.category] || med.category)}</span>
       </div>
-      <div class="med-meta">
-        <span class="chip">${escapeHtml(med.dosage)}</span>
-        <span class="chip">${Number(med.timesPerDay) || normalizedSchedule(med).length}x daily</span>
-        <span class="chip">${escapeHtml(intakeLabels[med.intake] || "No intake note")}</span>
+      <div class="med-scan">
+        <span>
+          <strong>Dosage</strong>
+          ${hasDosage ? escapeHtml(med.dosage) : renderEmptyActionChip(med.id, "Add dosage")}
+        </span>
+        <span>
+          <strong>Next scheduled</strong>
+          ${nextSlot ? `${escapeHtml(nextSlot.label)} ${escapeHtml(formatClock(nextSlot.time))}` : "No schedule times"}
+        </span>
       </div>
-      <p class="subtle">${escapeHtml(times || "No schedule times")}</p>
-      <div class="med-card-footer">
-        <span class="status-pill ${med.reminder?.enabled ? "taken" : ""}">${med.reminder?.enabled ? "Reminder on" : "Reminder off"}</span>
+      <div class="med-card-actions">
+        <div class="med-status-row">
+          <span class="status-pill ${med.reminder?.enabled ? "taken" : ""}">${med.reminder?.enabled ? "Reminder on" : "Reminder off"}</span>
+          ${
+            refillInfo.isTracking
+              ? `<span class="status-pill ${refillInfo.isLowSupply ? "missed low-supply" : "skipped"}">${escapeHtml(refillStatusLabel(med))}</span>`
+              : ""
+          }
+        </div>
         ${
-          refillInfo.isTracking
-            ? `<span class="status-pill ${refillInfo.isLowSupply ? "missed" : "skipped"}">${escapeHtml(refillStatusLabel(med))}</span>`
+          times
+            ? `<p class="subtle med-schedule-summary" title="${escapeAttribute(times)}">${escapeHtml(times)}</p>`
             : ""
         }
-        <button class="button tonal" type="button" data-action="view-medication" data-id="${escapeHtml(med.id)}">Details</button>
+        ${hasNotes ? "" : `<div class="empty-note-action">${renderEmptyActionChip(med.id, "Add notes")}</div>`}
+        <div class="med-quick-actions" aria-label="Actions for ${escapeAttribute(med.name)}">
+          <button class="button tonal med-details-button" type="button" data-action="view-medication" data-id="${escapeHtml(med.id)}">Details</button>
+          <button class="button med-card-action-button" type="button" data-action="edit-medication" data-id="${escapeHtml(med.id)}">Edit</button>
+          <button class="button med-card-action-button danger" type="button" data-action="delete-medication" data-id="${escapeHtml(med.id)}" ${state.busy ? "disabled" : ""}>${state.busy ? "Deleting..." : "Delete"}</button>
+        </div>
       </div>
     </article>
   `;
@@ -1279,16 +1412,51 @@ function renderMedicationCard(med) {
 function renderMedicationDetail(med) {
   const schedule = normalizedSchedule(med);
   const refillInfo = getRefillInfo(med);
+  const instructions = cleanText(med.foodInstructions || intakeLabels[med.intake] || "");
+  const hasAttachment = Boolean(med.attachment?.url || med.attachment?.name || med.attachment?.path);
+  const detailItems = [
+    renderOptionalDetailItem("Dosage", med.dosage),
+    renderOptionalDetailItem("Times per day", String(Number(med.timesPerDay) || schedule.length || "")),
+    renderOptionalDetailItem("Instructions", instructions),
+    med.reminder?.enabled ? renderOptionalDetailItem("Reminder", `${Number(med.reminder.leadMinutes) || 15} minutes before`) : "",
+    refillInfo.estimatedDaysRemaining !== null || refillInfo.isLowSupply ? renderOptionalDetailItem("Estimated supply", refillStatusLabel(med)) : "",
+    refillInfo.quantityRemaining !== null ? renderOptionalDetailItem("Quantity remaining", refillQuantityLabel(refillInfo.quantityRemaining)) : "",
+    refillInfo.refillThreshold !== null ? renderOptionalDetailItem("Low supply threshold", refillThresholdLabel(refillInfo.refillThreshold)) : "",
+    refillInfo.refillReminderEnabled ? renderOptionalDetailItem("Refill reminder", "On") : "",
+    renderOptionalDetailItem("Last refill", refillInfo.lastRefillDate),
+    cleanText(med.notes) ? renderOptionalDetailItem("Notes", med.notes) : "",
+  ].join("");
+  const notesAction = cleanText(med.notes)
+    ? ""
+    : `<div class="detail-note-action">
+        <button class="button tonal" type="button" data-action="edit-medication" data-id="${escapeHtml(med.id)}">Add notes</button>
+      </div>`;
+  const attachmentCard = hasAttachment
+    ? `
+      <div class="card">
+        <h3 class="section-title">Attachment</h3>
+        <div class="attachment-preview" style="margin-top: 12px;">
+          <strong>${escapeHtml(med.attachment.name || "Uploaded file")}</strong>
+          ${
+            med.attachment.url
+              ? `<a href="${escapeHtml(med.attachment.url)}" target="_blank" rel="noreferrer">Open uploaded file</a>`
+              : ""
+          }
+          <button class="button text" type="button" data-action="remove-attachment" data-id="${escapeHtml(med.id)}" ${state.busy ? "disabled" : ""}>Remove attachment</button>
+        </div>
+      </div>
+    `
+    : "";
   return `
     <section class="page">
       <div class="page-header">
         <div>
           <p class="eyebrow">${escapeHtml(categories[med.category] || med.category)}</p>
           <h2 class="page-title">${escapeHtml(med.name)}</h2>
-          ${renderPageIntro("Purpose, schedule, refill details, and notes in one place.")}
+          ${renderPageIntro("Review the details saved for this medication.")}
         </div>
-        <div class="detail-actions">
-          <button class="button tonal" type="button" data-action="navigate" data-view="dashboard">Back</button>
+      <div class="detail-actions">
+          <button class="button tonal" type="button" data-action="navigate" data-view="medications">Back to medications</button>
           <button class="button tonal" type="button" data-action="edit-medication" data-id="${escapeHtml(med.id)}">Edit</button>
           <button class="button danger" type="button" data-action="delete-medication" data-id="${escapeHtml(med.id)}" ${state.busy ? "disabled" : ""}>${state.busy ? "Deleting..." : "Delete"}</button>
         </div>
@@ -1298,53 +1466,15 @@ function renderMedicationDetail(med) {
         <article class="detail-card grid">
           <div class="detail-header">
             <div>
-              <h3>Purpose</h3>
-              <p class="subtle">${escapeHtml(med.purpose)}</p>
+              <h3>${cleanText(med.purpose) ? "Purpose" : "Medication details"}</h3>
+              ${cleanText(med.purpose) ? `<p class="subtle">${escapeHtml(med.purpose)}</p>` : ""}
             </div>
             <span class="chip ${escapeHtml(med.category)}">${escapeHtml(categories[med.category] || med.category)}</span>
           </div>
           <div class="detail-grid">
-            <div class="detail-item">
-              <span>Dosage</span>
-              <strong>${escapeHtml(med.dosage)}</strong>
-            </div>
-            <div class="detail-item">
-              <span>Times per day</span>
-              <strong>${Number(med.timesPerDay) || schedule.length}</strong>
-            </div>
-            <div class="detail-item">
-              <span>Instructions</span>
-              <strong>${escapeHtml(med.foodInstructions || intakeLabels[med.intake] || "Not specified")}</strong>
-            </div>
-            <div class="detail-item">
-              <span>Reminder</span>
-              <strong>${med.reminder?.enabled ? `${Number(med.reminder.leadMinutes) || 15} minutes before` : "Off"}</strong>
-            </div>
-            <div class="detail-item">
-              <span>Estimated supply</span>
-              <strong>${escapeHtml(refillStatusLabel(med))}</strong>
-            </div>
-            <div class="detail-item">
-              <span>Quantity remaining</span>
-              <strong>${escapeHtml(refillQuantityLabel(refillInfo.quantityRemaining))}</strong>
-            </div>
-            <div class="detail-item">
-              <span>Low supply threshold</span>
-              <strong>${escapeHtml(refillThresholdLabel(refillInfo.refillThreshold))}</strong>
-            </div>
-            <div class="detail-item">
-              <span>Refill reminder</span>
-              <strong>${refillInfo.refillReminderEnabled ? "On" : "Off"}</strong>
-            </div>
-            <div class="detail-item">
-              <span>Last refill</span>
-              <strong>${escapeHtml(refillInfo.lastRefillDate || "Not set")}</strong>
-            </div>
+            ${detailItems}
           </div>
-          <div class="detail-item">
-            <span>Notes</span>
-            <strong>${escapeHtml(med.notes || "No notes yet")}</strong>
-          </div>
+          ${notesAction}
         </article>
 
         <aside class="side-stack">
@@ -1363,23 +1493,31 @@ function renderMedicationDetail(med) {
                 .join("")}
             </div>
           </div>
-          <div class="card">
-            <h3 class="section-title">Attachment</h3>
-            ${
-              med.attachment?.url
-                ? `
-                  <div class="attachment-preview" style="margin-top: 12px;">
-                    <strong>${escapeHtml(med.attachment.name || "Uploaded file")}</strong>
-                    <a href="${escapeHtml(med.attachment.url)}" target="_blank" rel="noreferrer">Open uploaded file</a>
-                    <button class="button text" type="button" data-action="remove-attachment" data-id="${escapeHtml(med.id)}" ${state.busy ? "disabled" : ""}>Remove attachment</button>
-                  </div>
-                `
-                : `<p class="subtle">No label photo or instruction file uploaded yet.</p>`
-            }
-          </div>
+          ${attachmentCard}
         </aside>
       </div>
     </section>
+  `;
+}
+
+function renderOptionalDetailItem(label, value) {
+  const text = cleanText(value);
+  if (!text) {
+    return "";
+  }
+  return `
+    <div class="detail-item">
+      <span>${escapeHtml(label)}</span>
+      <strong>${escapeHtml(text)}</strong>
+    </div>
+  `;
+}
+
+function renderEmptyActionChip(medId, label) {
+  return `
+    <button class="empty-action-chip" type="button" data-action="edit-medication" data-id="${escapeHtml(medId)}">
+      ${escapeHtml(label)}
+    </button>
   `;
 }
 
@@ -1407,7 +1545,7 @@ function renderMedicationForm(med = null) {
           </div>
           <div class="top-form-stack full">
             <div class="field autocomplete-field">
-              <label for="name">Name</label>
+              <label for="name">Name <span class="required-mark" aria-hidden="true">*</span></label>
               <input
                 id="name"
                 name="name"
@@ -1430,7 +1568,6 @@ function renderMedicationForm(med = null) {
                 name="purpose"
                 value="${escapeAttribute(med?.purpose || "")}"
                 placeholder="Add a purpose or select common uses, e.g. blood pressure"
-                required
               />
               <div id="selected-use-chips" class="selected-use-row" aria-label="Selected common uses">
                 ${renderSelectedUseChips(med?.purpose || "")}
@@ -1453,32 +1590,22 @@ function renderMedicationForm(med = null) {
           <input type="hidden" id="genericName" name="genericName" value="${escapeAttribute(med?.genericName || "")}" />
           <div class="field full dosage-field">
             <label for="dosage">Dosage</label>
-            <input id="dosage" name="dosage" value="${escapeAttribute(med?.dosage || "")}" placeholder="eg. 10 mg Tab" required />
+            <input id="dosage" name="dosage" value="${escapeAttribute(med?.dosage || "")}" placeholder="eg. 10 mg Tab" />
             <div id="dosage-suggestions" class="inline-suggestion-panel" aria-live="polite" ${suggestionRecord?.strengthsAndForms?.length ? "" : "hidden"}>
               ${suggestionRecord?.strengthsAndForms?.length ? renderDosageSuggestions(suggestionRecord) : ""}
             </div>
           </div>
           <div class="form-section-label full">
-            <h3>Schedule and reminders</h3>
-            <p>Choose when this medication appears in the daily schedule.</p>
+            <h3>Schedule</h3>
+            <p>Choose when this medication appears in the daily schedule. Times per day should match the time slots you turn on.</p>
           </div>
           <div class="field">
             <label for="timesPerDay">Times per day</label>
             <input id="timesPerDay" name="timesPerDay" type="number" min="1" max="12" value="${escapeAttribute(String(timesPerDay))}" required />
-          </div>
-          <div class="field">
-            <label for="leadMinutes">Reminder lead time</label>
-            <select id="leadMinutes" name="leadMinutes">
-              ${[5, 10, 15, 30, 60]
-                .map(
-                  (minutes) =>
-                    `<option value="${minutes}" ${(Number(med?.reminder?.leadMinutes) || 15) === minutes ? "selected" : ""}>${minutes} minutes before</option>`,
-                )
-                .join("")}
-            </select>
+            <span class="helper">Use the number of daily doses on the label, then turn on the matching time slots below.</span>
           </div>
           <fieldset class="field full">
-            <legend class="fieldset-label">Specific times of day</legend>
+            <legend class="fieldset-label">Specific times of day <span class="required-mark" aria-hidden="true">*</span></legend>
             <div class="slot-grid">
               ${slotDefinitions
                 .map((slot) => {
@@ -1496,6 +1623,10 @@ function renderMedicationForm(med = null) {
                 .join("")}
             </div>
           </fieldset>
+          <div class="form-section-label full">
+            <h3>Instructions</h3>
+            <p>Add practical notes about how this medication should be taken.</p>
+          </div>
           <fieldset class="field full">
             <legend class="fieldset-label">How it should be taken</legend>
             <div class="radio-grid">
@@ -1503,7 +1634,7 @@ function renderMedicationForm(med = null) {
                 .map(
                   ([value, label]) => `
                     <label class="radio-card">
-                      <input type="radio" name="intake" value="${value}" ${(med?.intake || "water") === value ? "checked" : ""} />
+                      <input type="radio" name="intake" value="${value}" ${med?.intake === value ? "checked" : ""} />
                       ${label}
                     </label>
                   `,
@@ -1515,13 +1646,29 @@ function renderMedicationForm(med = null) {
             <label for="foodInstructions">Instructions</label>
             <input id="foodInstructions" name="foodInstructions" value="${escapeAttribute(med?.foodInstructions || "")}" placeholder="Add instructions, e.g. take with food, before bed, avoid alcohol" />
           </div>
+          <div class="form-section-label full">
+            <h3>Reminders</h3>
+            <p>Reminder cards appear in this organizer. Browser notifications are not active on the web app.</p>
+          </div>
           <label class="checkbox-row field full">
             <input type="checkbox" name="reminderEnabled" ${med?.reminder?.enabled ? "checked" : ""} />
             Show reminder-style cards in the app
           </label>
+          <div class="field reminder-lead-field ${med?.reminder?.enabled ? "" : "is-muted"}">
+            <label for="leadMinutes">Reminder lead time</label>
+            <select id="leadMinutes" name="leadMinutes">
+              ${[5, 10, 15, 30, 60]
+                .map(
+                  (minutes) =>
+                    `<option value="${minutes}" ${(Number(med?.reminder?.leadMinutes) || 15) === minutes ? "selected" : ""}>${minutes} minutes before</option>`,
+                )
+                .join("")}
+            </select>
+            <span class="helper">Only used when reminder cards are turned on.</span>
+          </div>
           <div class="form-section-label full">
-            <h3>Refill and notes</h3>
-            <p>Optional supply details, notes, and label attachments stay with this medication.</p>
+            <h3>Refill tracking</h3>
+            <p>Optional supply details stay with this medication and can power low-supply reminders.</p>
           </div>
           <fieldset class="field full">
             <legend class="fieldset-label">Refill tracking</legend>
@@ -1566,6 +1713,10 @@ function renderMedicationForm(med = null) {
             </div>
             <span class="helper">Optional. Use the same unit you count at home, such as tablets, capsules, patches, or doses.</span>
           </fieldset>
+          <div class="form-section-label full">
+            <h3>Notes</h3>
+            <p>Keep doctor instructions, refill notes, side effects, or attachment details here.</p>
+          </div>
           <div class="field full">
             <label for="notes">Notes</label>
             <textarea id="notes" name="notes" placeholder="Side effects, doctor instructions, refill info, or reminders">${escapeHtml(med?.notes || "")}</textarea>
@@ -1592,7 +1743,7 @@ function renderMedicationForm(med = null) {
 function renderDosageSuggestions(record) {
   return `
     <div class="smart-chip-group">
-      <span class="smart-chip-label">Available strength/form options</span>
+      <span class="smart-chip-label">Optional strength/form options</span>
       <div class="suggestion-chip-row">
         ${(record.strengthsAndForms || [])
           .map(
@@ -1611,7 +1762,7 @@ function renderDosageSuggestions(record) {
 function renderUseSuggestions(record) {
   return `
     <div class="smart-chip-group">
-      <span class="smart-chip-label">Common use options</span>
+      <span class="smart-chip-label">Optional common use options</span>
       <div class="suggestion-chip-row">
         ${(record.commonUses || [])
           .map(
@@ -1850,10 +2001,10 @@ function selectMedicationSuggestion(name) {
 
   if (record.foodInstructions) {
     const intake = intakeFromFoodInstructions(record.foodInstructions);
-    const intakeInput = form.querySelector(`input[name="intake"][value="${intake}"]`);
-    if (intakeInput) {
-      intakeInput.checked = true;
-    }
+    form.querySelectorAll('input[name="intake"]').forEach((input) => {
+      input.checked = input.value === intake;
+      input.dataset.wasChecked = "false";
+    });
   }
 
   updateMedicationHelperPanels(record);
@@ -1996,17 +2147,16 @@ function renderReminderCard(dose) {
 
 function renderReminderSummary() {
   const reminders = getTodayDoses().filter((dose) => dose.med.reminder?.enabled).slice(0, 3);
+  if (!reminders.length) {
+    return "";
+  }
   return `
     <div class="card">
       <div class="med-card-footer">
         <h3 class="section-title">Reminders</h3>
         <button class="button text" type="button" data-action="navigate" data-view="reminders">Open</button>
       </div>
-      ${
-        reminders.length
-          ? `<div class="reminder-list" style="margin-top: 12px;">${reminders.map(renderReminderSummaryItem).join("")}</div>`
-          : `<p class="subtle">No in-app reminder cards are turned on yet.</p>`
-      }
+      <div class="reminder-list" style="margin-top: 12px;">${reminders.map(renderReminderSummaryItem).join("")}</div>
     </div>
   `;
 }
@@ -2023,12 +2173,13 @@ function renderReminderSummaryItem(dose) {
 
 function renderNotesSummary() {
   const noted = state.meds.filter((med) => med.notes).slice(0, 3);
+  if (!noted.length) {
+    return "";
+  }
   return `
     <div class="card">
       <h3 class="section-title">Recent notes</h3>
-      ${
-        noted.length
-          ? `<div class="reminder-list" style="margin-top: 12px;">
+      <div class="reminder-list" style="margin-top: 12px;">
               ${noted
                 .map(
                   (med) => `
@@ -2039,9 +2190,7 @@ function renderNotesSummary() {
                   `,
                 )
                 .join("")}
-            </div>`
-          : `<p class="subtle">Medication notes will show up here after you add them.</p>`
-      }
+            </div>
     </div>
   `;
 }

@@ -8,6 +8,7 @@ import {
 import {
   deleteObject,
   getBytes,
+  listAll,
   ref,
   uploadBytes,
 } from "firebase/storage";
@@ -71,6 +72,25 @@ describe("Storage attachment rules", () => {
     await assertFails(getBytes(ref(other, path)));
     await assertFails(deleteObject(ref(other, path)));
     await assertFails(uploadBytes(ref(other, path), bytes(128), { contentType: "image/png" }));
+  });
+
+  test("owner can list their own medication attachment folders", async () => {
+    const storage = ownerStorage("owner-a");
+    const path = "users/owner-a/medications/med-1/label.png";
+
+    await assertSucceeds(uploadBytes(ref(storage, path), bytes(128), { contentType: "image/png" }));
+    await assertSucceeds(listAll(ref(storage, "users/owner-a/medications")));
+    await assertSucceeds(listAll(ref(storage, "users/owner-a/medications/med-1")));
+  });
+
+  test("cross-user attachment listing is blocked", async () => {
+    const owner = ownerStorage("owner-a");
+    const other = ownerStorage("owner-b");
+    const path = "users/owner-a/medications/med-1/label.png";
+
+    await assertSucceeds(uploadBytes(ref(owner, path), bytes(128), { contentType: "image/png" }));
+    await assertFails(listAll(ref(other, "users/owner-a/medications")));
+    await assertFails(listAll(ref(other, "users/owner-a/medications/med-1")));
   });
 
   test("unsupported file types are rejected", async () => {

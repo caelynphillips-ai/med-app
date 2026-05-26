@@ -1,16 +1,10 @@
 import { useMemo, useState } from "react";
-import { sampleMedications } from "../../../shared/sampleMedications.js";
 import { buildTodayDoses } from "../../../shared/doseStatus.js";
 import { currentMinutes } from "../../../shared/dateTime.js";
 
-const sampleMobileMedications = sampleMedications.map((medication, index) => ({
-  ...medication,
-  id: `sample-${index + 1}`,
-}));
-
-export function useTodayDoses({ medications, statuses, onMarkDose, useSampleFallback = false } = {}) {
+export function useTodayDoses({ medications = [], statuses, onMarkDose } = {}) {
   const [localStatuses, setLocalStatuses] = useState({});
-  const sourceMedications = useSampleFallback && !medications?.length ? sampleMobileMedications : medications || [];
+  const sourceMedications = medications;
   const sourceStatuses = statuses || localStatuses;
 
   const doses = useMemo(() => buildTodayDoses(sourceMedications, sourceStatuses, currentMinutes()), [sourceMedications, sourceStatuses]);
