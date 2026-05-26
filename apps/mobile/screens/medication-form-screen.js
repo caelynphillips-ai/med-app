@@ -449,7 +449,7 @@ export function MedicationFormScreen({ medication, onNavigate, onSave }) {
           body="Optional supply details can help with low-supply reminders."
         />
 
-        <Field label="Refill tracking">
+        <View style={styles.field}>
           <View style={styles.row}>
             <Field label="Quantity remaining" style={styles.rowField}>
               <TextInput
@@ -493,7 +493,7 @@ export function MedicationFormScreen({ medication, onNavigate, onSave }) {
               value={form.refillReminderEnabled}
             />
           </View>
-        </Field>
+        </View>
 
         <SectionLabel
           title="Notes"

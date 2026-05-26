@@ -106,6 +106,7 @@ function renderRoute(route, mobile, selectedMedication, navigate) {
       statuses={mobile.statuses}
       onEditMedication={(medicationId) => navigate({ route: routes.medicationForm, medicationId })}
       onMarkDose={mobile.markDose}
+      onOpenMedication={(medicationId) => navigate({ route: routes.medicationDetail, medicationId })}
     />
   );
 }

@@ -61,8 +61,10 @@ const styles = StyleSheet.create({
   card: {
     ...shadows.card,
     backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderCurve: "continuous",
     borderRadius: radius.md,
+    borderWidth: 1,
     gap: spacing.xs,
     padding: spacing.lg,
   },
@@ -72,9 +74,11 @@ const styles = StyleSheet.create({
     fontWeight: "900",
   },
   empty: {
-    backgroundColor: colors.light,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderCurve: "continuous",
     borderRadius: radius.lg,
+    borderWidth: 1,
     alignItems: "flex-start",
     gap: spacing.sm,
     padding: spacing.lg,

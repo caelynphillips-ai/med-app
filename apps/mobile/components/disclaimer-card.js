@@ -19,8 +19,10 @@ export function DisclaimerCard() {
 const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.accent,
+    borderColor: "rgba(36, 52, 71, 0.12)",
     borderCurve: "continuous",
     borderRadius: radius.md,
+    borderWidth: 1,
     gap: spacing.sm,
     padding: spacing.lg,
   },

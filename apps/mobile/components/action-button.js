@@ -43,7 +43,7 @@ const styles = StyleSheet.create({
     opacity: 0.78,
   },
   quiet: {
-    backgroundColor: colors.light,
+    backgroundColor: colors.primarySoft,
   },
   quietText: {
     color: colors.text,

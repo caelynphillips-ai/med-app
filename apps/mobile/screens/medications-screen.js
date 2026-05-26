@@ -69,7 +69,7 @@ export function MedicationsScreen({ medications, onDelete, onNavigate }) {
             Medication list
           </Text>
           <Text selectable style={styles.subtitle}>
-            Search, filter, and open details for each saved medication.
+            Search, filter, and manage each saved medication.
           </Text>
         </View>
         <ActionButton onPress={() => onNavigate({ route: routes.medicationForm })}>Add medication</ActionButton>
@@ -291,7 +291,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderCurve: "continuous",
     borderRadius: radius.lg,
-    gap: spacing.md,
+    gap: spacing.lg,
     padding: spacing.lg,
   },
   cardTitleColumn: {
@@ -311,9 +311,9 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: spacing.sm,
+    gap: spacing.md,
     justifyContent: "flex-end",
-    paddingTop: spacing.sm,
+    paddingTop: spacing.md,
   },
   badgeRow: {
     flexDirection: "row",
@@ -347,9 +347,11 @@ const styles = StyleSheet.create({
     opacity: 0.52,
   },
   empty: {
-    backgroundColor: colors.light,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderCurve: "continuous",
     borderRadius: radius.lg,
+    borderWidth: 1,
     alignItems: "flex-start",
     gap: spacing.sm,
     padding: spacing.lg,

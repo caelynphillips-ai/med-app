@@ -7,7 +7,7 @@ import { SummaryCard } from "../components/summary-card.js";
 import { useTodayDoses } from "../hooks/use-today-doses.js";
 import { colors, spacing, typography } from "../theme/tokens.js";
 
-export function TodayScreen({ medications, statuses, onEditMedication, onMarkDose }) {
+export function TodayScreen({ medications, statuses, onEditMedication, onMarkDose, onOpenMedication }) {
   const { doses, medications: visibleMedications, summary, markDose } = useTodayDoses({
     medications,
     statuses,
@@ -49,7 +49,7 @@ export function TodayScreen({ medications, statuses, onEditMedication, onMarkDos
             <View style={styles.heroDetailRow}>
               <Text selectable style={styles.heroDetail}>
                 {nextDose.med.name}
-                {heroDosage ? ` - ${heroDosage}` : " - "}
+                {heroDosage ? ` - ${heroDosage}` : ""}
               </Text>
               {!heroDosage ? (
                 <PromptChip label="Add dosage" onPress={() => onEditMedication(nextDose.med.id)} />
@@ -68,11 +68,13 @@ export function TodayScreen({ medications, statuses, onEditMedication, onMarkDos
         </View>
       </View>
 
-      <View style={styles.summaryGrid}>
-        <SummaryCard label="Total doses" value={String(summary.totalDoses)} />
-        <SummaryCard label="Marked taken" value={String(summary.markedTaken)} />
-        <SummaryCard label="Remaining" value={String(remainingDoses)} />
-      </View>
+      {hasDoses ? (
+        <View style={styles.summaryGrid}>
+          <SummaryCard label="Total doses" value={String(summary.totalDoses)} />
+          <SummaryCard label="Marked taken" value={String(summary.markedTaken)} />
+          <SummaryCard label="Remaining" value={String(remainingDoses)} />
+        </View>
+      ) : null}
 
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
@@ -89,6 +91,7 @@ export function TodayScreen({ medications, statuses, onEditMedication, onMarkDos
               key={dose.key}
               dose={dose}
               onEditMedication={() => onEditMedication(dose.med.id)}
+              onOpenDetails={() => onOpenMedication(dose.med.id)}
               onStatusChange={markDose}
             />
           ))
@@ -137,9 +140,11 @@ function PromptChip({ label, onPress }) {
 
 const styles = StyleSheet.create({
   empty: {
-    backgroundColor: colors.light,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderCurve: "continuous",
     borderRadius: 14,
+    borderWidth: 1,
     gap: spacing.sm,
     padding: spacing.lg,
   },

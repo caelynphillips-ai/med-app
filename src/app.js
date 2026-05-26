@@ -763,7 +763,7 @@ function renderTopBar() {
               </div>
               <button class="button text" type="button" data-action="sign-out" ${state.busy ? "disabled" : ""}>Sign out</button>
             `
-            : `<button class="button primary" type="button" data-action="sign-in" ${state.busy ? "disabled" : ""}>Sign in with Google</button>`
+            : ""
         }
       </div>
     </header>
@@ -929,20 +929,24 @@ function renderDashboard() {
         <span class="progress-pill">${escapeHtml(progressCopy)}</span>
       </article>
 
-      <div class="grid stats-grid">
-        <article class="stat-card">
-          <span>Total doses</span>
-          <strong>${doses.length}</strong>
-        </article>
-        <article class="stat-card">
-          <span>Marked taken</span>
-          <strong>${takenCount}</strong>
-        </article>
-        <article class="stat-card">
-          <span>Remaining</span>
-          <strong>${remainingCount}</strong>
-        </article>
-      </div>
+      ${
+        hasDoses
+          ? `<div class="grid stats-grid">
+              <article class="stat-card">
+                <span>Total doses</span>
+                <strong>${doses.length}</strong>
+              </article>
+              <article class="stat-card">
+                <span>Marked taken</span>
+                <strong>${takenCount}</strong>
+              </article>
+              <article class="stat-card">
+                <span>Remaining</span>
+                <strong>${remainingCount}</strong>
+              </article>
+            </div>`
+          : ""
+      }
 
       <div class="grid dashboard-grid">
         <section class="grid" aria-label="Dose schedule">
@@ -971,10 +975,9 @@ function renderNextDoseHeroDetail(dose) {
   const dosage = cleanText(dose.med.dosage);
   return `
     ${escapeHtml(dose.med.name)}
-    <span aria-hidden="true"> - </span>
     ${
       dosage
-        ? escapeHtml(dosage)
+        ? `<span aria-hidden="true"> - </span>${escapeHtml(dosage)}`
         : renderEmptyActionChip(dose.med.id, "Add dosage")
     }
   `;
@@ -1108,7 +1111,7 @@ function renderPrivacy() {
 
         <article class="notice">
           <strong>Export note</strong>
-          <span>Download a readable copy of your medications, schedule, notes, and details.</span>
+          <span>The readable list is designed for sharing or printing. It does not replace medical advice.</span>
         </article>
 
         <article class="card danger-zone">
@@ -1202,23 +1205,25 @@ function renderDoseCard(dose) {
               : ""
           }
         </div>
-        <div class="segmented-control" aria-label="Dose status for ${escapeHtml(dose.med.name)} at ${escapeHtml(dose.label)}">
-          ${["taken", "skipped", "missed"]
-            .map(
-              (item) => `
-                <button
-                  class="segmented-button ${item} ${displayStatus === item ? "active" : ""}"
-                  type="button"
-                  data-action="mark-dose"
-                  data-key="${escapeHtml(dose.key)}"
-                  data-status="${item}"
-                  ${state.busy ? "disabled" : ""}
-                >${titleCase(item)}</button>
-              `,
-            )
-            .join("")}
+        <div class="dose-action-row">
+          <div class="segmented-control" aria-label="Dose status for ${escapeHtml(dose.med.name)} at ${escapeHtml(dose.label)}">
+            ${["taken", "skipped", "missed"]
+              .map(
+                (item) => `
+                  <button
+                    class="segmented-button ${item} ${displayStatus === item ? "active" : ""}"
+                    type="button"
+                    data-action="mark-dose"
+                    data-key="${escapeHtml(dose.key)}"
+                    data-status="${item}"
+                    ${state.busy ? "disabled" : ""}
+                  >${titleCase(item)}</button>
+                `,
+              )
+              .join("")}
+          </div>
+          <button class="button detail-button" type="button" data-action="view-medication" data-id="${escapeHtml(dose.med.id)}">Open details</button>
         </div>
-        <button class="button detail-button" type="button" data-action="view-medication" data-id="${escapeHtml(dose.med.id)}">Open details</button>
       </div>
     </article>
   `;
@@ -1232,7 +1237,7 @@ function renderMedicationList() {
         <div>
           <p class="eyebrow" id="med-list-count-label">${escapeHtml(renderMedicationListCount(visibleMeds.length))}</p>
           <h2 class="page-title">Medication list</h2>
-          ${renderPageIntro("Search, filter, and open details without changing saved data.")}
+          ${renderPageIntro("Search, filter, and manage each saved medication.")}
         </div>
         <button class="button primary" type="button" data-action="add-medication">Add medication</button>
       </div>
@@ -1455,7 +1460,7 @@ function renderMedicationDetail(med) {
           <h2 class="page-title">${escapeHtml(med.name)}</h2>
           ${renderPageIntro("Review the details saved for this medication.")}
         </div>
-      <div class="detail-actions">
+        <div class="detail-actions">
           <button class="button tonal" type="button" data-action="navigate" data-view="medications">Back to medications</button>
           <button class="button tonal" type="button" data-action="edit-medication" data-id="${escapeHtml(med.id)}">Edit</button>
           <button class="button danger" type="button" data-action="delete-medication" data-id="${escapeHtml(med.id)}" ${state.busy ? "disabled" : ""}>${state.busy ? "Deleting..." : "Delete"}</button>

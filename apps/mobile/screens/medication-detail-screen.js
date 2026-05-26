@@ -180,8 +180,10 @@ const styles = StyleSheet.create({
   card: {
     ...shadows.card,
     backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderCurve: "continuous",
     borderRadius: radius.md,
+    borderWidth: 1,
     flexDirection: "row",
     flexWrap: "wrap",
     gap: spacing.md,

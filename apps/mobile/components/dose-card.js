@@ -6,7 +6,7 @@ import { statusLabel } from "../../../shared/doseStatus.js";
 import { colors, radius, shadows, spacing, typography } from "../theme/tokens.js";
 import { StatusButton } from "./status-button.js";
 
-export function DoseCard({ dose, onEditMedication, onStatusChange }) {
+export function DoseCard({ dose, onEditMedication, onOpenDetails, onStatusChange }) {
   const category = categoryLabels[dose.med.category] || dose.med.category || "Medication";
   const dosage = dose.med.dosage?.trim() || "Add dosage";
   const purpose = dose.med.purpose?.trim() || "Add purpose";
@@ -63,25 +63,30 @@ export function DoseCard({ dose, onEditMedication, onStatusChange }) {
           )}
         </View>
 
-        <View style={styles.buttonRow}>
-          <StatusButton
-            label="Taken"
-            selected={dose.status === "taken"}
-            status="taken"
-            onPress={() => onStatusChange(dose.key, "taken")}
-          />
-          <StatusButton
-            label="Skipped"
-            selected={dose.status === "skipped"}
-            status="skipped"
-            onPress={() => onStatusChange(dose.key, "skipped")}
-          />
-          <StatusButton
-            label="Missed"
-            selected={dose.status === "missed"}
-            status="missed"
-            onPress={() => onStatusChange(dose.key, "missed")}
-          />
+        <View style={styles.actionRow}>
+          <View style={styles.buttonRow}>
+            <StatusButton
+              label="Taken"
+              selected={dose.status === "taken"}
+              status="taken"
+              onPress={() => onStatusChange(dose.key, "taken")}
+            />
+            <StatusButton
+              label="Skipped"
+              selected={dose.status === "skipped"}
+              status="skipped"
+              onPress={() => onStatusChange(dose.key, "skipped")}
+            />
+            <StatusButton
+              label="Missed"
+              selected={dose.status === "missed"}
+              status="missed"
+              onPress={() => onStatusChange(dose.key, "missed")}
+            />
+          </View>
+          <Pressable accessibilityRole="button" onPress={onOpenDetails} style={({ pressed }) => [styles.detailButton, pressed && styles.pressed]}>
+            <Text style={styles.detailButtonText}>Open details</Text>
+          </Pressable>
         </View>
       </View>
     </View>
@@ -97,12 +102,21 @@ function PromptChip({ label, onPress }) {
 }
 
 const styles = StyleSheet.create({
+  actionRow: {
+    alignItems: "flex-end",
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.md,
+    justifyContent: "space-between",
+    marginTop: spacing.sm,
+  },
   body: {
     flex: 1,
     gap: spacing.md,
     padding: spacing.lg,
   },
   buttonRow: {
+    flex: 1,
     flexDirection: "row",
     flexWrap: "wrap",
     gap: spacing.sm,
@@ -135,6 +149,20 @@ const styles = StyleSheet.create({
     fontSize: typography.small,
     lineHeight: 18,
     opacity: 0.76,
+  },
+  detailButton: {
+    alignItems: "center",
+    alignSelf: "flex-end",
+    minHeight: 34,
+    justifyContent: "center",
+    marginLeft: "auto",
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  detailButtonText: {
+    color: colors.onPrimary,
+    fontSize: typography.small,
+    fontWeight: "900",
   },
   intake: {
     color: colors.onEmphasisMuted,

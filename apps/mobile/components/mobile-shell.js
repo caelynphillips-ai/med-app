@@ -11,7 +11,7 @@ export function MobileShell({ activeRoute, children, error, onNavigate, user, on
     ? isPreviewSession
       ? "Temporary device session for testing. It is not connected to Google."
       : user.email || "Firebase session active"
-    : "Keep track of medications, vitamins, supplements, reminders, and refills in one organized place. Preview mode is a temporary device session for testing.";
+    : "Keep medications, vitamins, supplements, reminders, and refills in one organized place.";
 
   return (
     <View style={styles.shell}>
@@ -32,19 +32,24 @@ export function MobileShell({ activeRoute, children, error, onNavigate, user, on
               <Text style={styles.authButtonText}>Sign out</Text>
             </Pressable>
           ) : (
-            <View style={styles.authActions}>
-              <Pressable accessibilityRole="button" onPress={onGoogleSignIn} disabled={busy} style={styles.authButton}>
-                <Text style={styles.authButtonText}>Google</Text>
-              </Pressable>
-              <Pressable
-                accessibilityLabel="Start preview mode with a temporary Firebase account"
-                accessibilityRole="button"
-                onPress={onPreviewSignIn}
-                disabled={busy}
-                style={styles.authButton}
-              >
-                <Text style={styles.authButtonText}>Preview mode</Text>
-              </Pressable>
+            <View style={styles.authActionsStack}>
+              <View style={styles.authActions}>
+                <Pressable accessibilityRole="button" onPress={onGoogleSignIn} disabled={busy} style={styles.authButton}>
+                  <Text style={styles.authButtonText}>Google sign-in</Text>
+                </Pressable>
+                <Pressable
+                  accessibilityLabel="Start preview mode with a temporary Firebase account"
+                  accessibilityRole="button"
+                  onPress={onPreviewSignIn}
+                  disabled={busy}
+                  style={styles.authButton}
+                >
+                  <Text style={styles.authButtonText}>Preview mode</Text>
+                </Pressable>
+              </View>
+              <Text selectable style={styles.authHint}>
+                Preview mode is temporary and not connected to Google.
+              </Text>
             </View>
           )}
         </View>
@@ -87,6 +92,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: spacing.sm,
   },
+  authActionsStack: {
+    alignItems: "flex-start",
+    gap: spacing.xs,
+    maxWidth: 310,
+  },
   authButton: {
     backgroundColor: colors.primary,
     borderCurve: "continuous",
@@ -98,6 +108,12 @@ const styles = StyleSheet.create({
     color: colors.onPrimary,
     fontSize: typography.small,
     fontWeight: "900",
+  },
+  authHint: {
+    color: colors.mutedText,
+    fontSize: typography.label,
+    fontWeight: "800",
+    lineHeight: 17,
   },
   authRow: {
     alignItems: "center",

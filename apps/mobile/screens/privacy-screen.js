@@ -195,8 +195,10 @@ const styles = StyleSheet.create({
   card: {
     ...shadows.card,
     backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderCurve: "continuous",
     borderRadius: radius.md,
+    borderWidth: 1,
     gap: spacing.md,
     padding: spacing.lg,
   },
@@ -211,6 +213,7 @@ const styles = StyleSheet.create({
     fontWeight: "900",
   },
   dangerCard: {
+    backgroundColor: colors.alertSoft,
     borderColor: colors.alert,
     borderWidth: 1,
   },

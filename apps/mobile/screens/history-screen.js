@@ -173,9 +173,11 @@ const styles = StyleSheet.create({
     fontWeight: "900",
   },
   empty: {
-    backgroundColor: colors.light,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderCurve: "continuous",
     borderRadius: radius.lg,
+    borderWidth: 1,
     gap: spacing.sm,
     padding: spacing.lg,
   },
