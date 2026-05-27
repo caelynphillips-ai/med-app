@@ -8,7 +8,8 @@ import {
   medicationCategories,
 } from "../../../shared/medicationSchema.js";
 import { commonUseLabel, commonUseValue, parseCommonUses } from "../../../shared/commonUses.js";
-import { normalizeRefillDateInput, normalizeRefillNumber } from "../../../shared/refill.js";
+import { normalizeTimeInput } from "../../../shared/dateTime.js";
+import { normalizeQuantityPerDose, normalizeRefillDateInput, normalizeRefillNumber } from "../../../shared/refill.js";
 import { normalizedSchedule } from "../../../shared/schedule.js";
 import { normalizeCategory } from "../../../shared/rxterms.js";
 import { ActionButton } from "../components/action-button.js";
@@ -151,9 +152,31 @@ export function MedicationFormScreen({ medication, onNavigate, onSave, returnRou
       [slotId]: {
         ...(current[slotId] || {}),
         checked: true,
-        time,
+        displayTime: time,
       },
     }));
+  }
+
+  function validateSlotTime(slot) {
+    const entry = schedule[slot.id] || {};
+    if (!entry.checked) {
+      return true;
+    }
+    const rawTime = entry.displayTime ?? entry.time ?? slot.time;
+    const normalizedTime = normalizeTimeInput(rawTime);
+    if (!String(rawTime || "").trim() || !normalizedTime) {
+      setError(`Enter a valid time for ${slot.label}, such as 8 AM or 18:00.`);
+      return false;
+    }
+    setSchedule((current) => ({
+      ...current,
+      [slot.id]: {
+        ...(current[slot.id] || {}),
+        time: normalizedTime,
+      },
+    }));
+    setError((current) => (current.startsWith("Enter a valid time") ? "" : current));
+    return true;
   }
 
   async function submit() {
@@ -163,6 +186,7 @@ export function MedicationFormScreen({ medication, onNavigate, onSave, returnRou
       return;
     }
     const quantityRemaining = normalizeRefillNumber(form.quantityRemaining);
+    const quantityPerDose = normalizeQuantityPerDose(form.quantityPerDose);
     const refillThreshold = normalizeRefillNumber(form.refillThreshold);
     const lastRefillDate = normalizeRefillDateInput(form.lastRefillDate);
     if (lastRefillDate === null) {
@@ -174,13 +198,23 @@ export function MedicationFormScreen({ medication, onNavigate, onSave, returnRou
       return;
     }
 
-    const selectedSchedule = defaultScheduleSlots
-      .filter((slot) => schedule[slot.id]?.checked)
-      .map((slot) => ({
+    const selectedSchedule = [];
+    for (const slot of defaultScheduleSlots) {
+      if (!schedule[slot.id]?.checked) {
+        continue;
+      }
+      const rawTime = schedule[slot.id]?.displayTime ?? schedule[slot.id]?.time ?? slot.time;
+      const normalizedTime = normalizeTimeInput(rawTime);
+      if (!normalizedTime) {
+        setError(`Enter a valid time for ${slot.label}, such as 8 AM or 18:00.`);
+        return;
+      }
+      selectedSchedule.push({
         id: slot.id,
         label: slot.label,
-        time: schedule[slot.id]?.time || slot.time,
-      }));
+        time: normalizedTime,
+      });
+    }
     if (selectedSchedule.length === 0) {
       setError("Choose at least one time of day.");
       return;
@@ -202,6 +236,7 @@ export function MedicationFormScreen({ medication, onNavigate, onSave, returnRou
         foodInstructions: form.foodInstructions.trim(),
         notes: form.notes.trim(),
         quantityRemaining,
+        quantityPerDose,
         refillThreshold,
         refillReminderEnabled: form.refillReminderEnabled,
         lastRefillDate,
@@ -385,10 +420,11 @@ export function MedicationFormScreen({ medication, onNavigate, onSave, returnRou
                 <Text style={styles.scheduleLabel}>{slot.label}</Text>
                 <TextInput
                   onChangeText={(value) => updateSlotTime(slot.id, value)}
-                  placeholder={slot.time}
+                  onBlur={() => validateSlotTime(slot)}
+                  placeholder="8 AM or 18:00"
                   placeholderTextColor={colors.mutedText}
                   style={styles.timeInput}
-                  value={schedule[slot.id]?.time || slot.time}
+                  value={schedule[slot.id]?.displayTime ?? schedule[slot.id]?.time ?? slot.time}
                 />
               </View>
             ))}
@@ -469,6 +505,18 @@ export function MedicationFormScreen({ medication, onNavigate, onSave, returnRou
                 value={String(form.quantityRemaining)}
               />
             </Field>
+            <Field label="Quantity per dose" style={styles.rowField}>
+              <TextInput
+                keyboardType="decimal-pad"
+                onChangeText={(value) => updateField("quantityPerDose", value)}
+                placeholder="e.g. 1"
+                placeholderTextColor={colors.mutedText}
+                style={styles.input}
+                value={String(form.quantityPerDose)}
+              />
+            </Field>
+          </View>
+          <View style={styles.row}>
             <Field label="Low supply threshold" style={styles.rowField}>
               <TextInput
                 keyboardType="decimal-pad"
@@ -567,6 +615,7 @@ function formFromMedication(medication) {
     foodInstructions: medication?.foodInstructions || "",
     notes: medication?.notes || "",
     quantityRemaining: medication?.quantityRemaining ?? "",
+    quantityPerDose: medication?.quantityPerDose ?? "",
     refillThreshold: medication?.refillThreshold ?? "",
     refillReminderEnabled: Boolean(medication?.refillReminderEnabled),
     lastRefillDate: medication?.lastRefillDate || "",
@@ -578,12 +627,12 @@ function formFromMedication(medication) {
 function scheduleFromMedication(medication) {
   const schedule = {};
   defaultScheduleSlots.forEach((slot) => {
-    schedule[slot.id] = { checked: !medication && slot.id === "morning", time: slot.time };
+    schedule[slot.id] = { checked: !medication && slot.id === "morning", displayTime: slot.time, time: slot.time };
   });
   if (medication) {
     normalizedSchedule(medication).forEach((slot) => {
       if (schedule[slot.id]) {
-        schedule[slot.id] = { checked: true, time: slot.time };
+        schedule[slot.id] = { checked: true, displayTime: slot.time, time: slot.time };
       }
     });
   }

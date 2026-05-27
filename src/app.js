@@ -21,12 +21,14 @@ import {
 import { findMedicationRecordByName as findMedicationRecordInSources, getMedicationSuggestions as searchMedicationSuggestions, loadMedicationDatabase as fetchMedicationDatabase } from "./services/suggestionService.js";
 import { deleteAttachmentPath, uploadMedicationAttachment } from "./services/storageService.js";
 import { commonUseLabel, commonUseValue, parseCommonUses } from "./utils/commonUses.js";
-import { currentMinutes, formatClock, formatMinutes, fullDateLabel, minutesFromTime, todayKey } from "./utils/dateTime.js";
+import { currentMinutes, formatClock, formatMinutes, fullDateLabel, minutesFromTime, normalizeTimeInput, todayKey } from "./utils/dateTime.js";
 import { messageFromError } from "./utils/errors.js";
 import { intakeFromFoodInstructions } from "./utils/medicationFields.js";
 import {
   getRefillInfo,
+  normalizeQuantityPerDose,
   refillQuantityLabel,
+  refillQuantityPerDoseLabel,
   refillStatusLabel,
   refillThresholdLabel,
   normalizeRefillNumber,
@@ -392,14 +394,24 @@ async function saveMedication(form) {
   }
 
   const formData = new FormData(form);
-  const selectedSchedule = slotDefinitions
-    .filter((slot) => formData.get(`slot-${slot.id}`) === "on")
-    .map((slot) => ({
+  const selectedSchedule = [];
+  for (const slot of slotDefinitions) {
+    if (formData.get(`slot-${slot.id}`) !== "on") {
+      continue;
+    }
+    const rawTime = formData.get(`time-${slot.id}`) || slot.time;
+    const normalizedTime = normalizeTimeInput(rawTime);
+    if (!normalizedTime) {
+      showToast(`Enter a valid time for ${slot.label}, such as 8 AM or 18:00.`, "error");
+      return;
+    }
+    selectedSchedule.push({
       id: slot.id,
       label: slot.label,
-      time: formData.get(`time-${slot.id}`) || slot.time,
-    }))
-    .sort((a, b) => minutesFromTime(a.time) - minutesFromTime(b.time));
+      time: normalizedTime,
+    });
+  }
+  selectedSchedule.sort((a, b) => minutesFromTime(a.time) - minutesFromTime(b.time));
 
   if (selectedSchedule.length === 0) {
     showToast("Choose at least one time of day.", "error");
@@ -408,6 +420,7 @@ async function saveMedication(form) {
 
   const timesPerDay = Number(formData.get("timesPerDay")) || selectedSchedule.length;
   const quantityRemaining = normalizeRefillNumber(formData.get("quantityRemaining"));
+  const quantityPerDose = normalizeQuantityPerDose(formData.get("quantityPerDose"));
   const refillThreshold = normalizeRefillNumber(formData.get("refillThreshold"));
   const payload = {
     schemaVersion: MEDICATION_SCHEMA_VERSION,
@@ -422,6 +435,7 @@ async function saveMedication(form) {
     foodInstructions: cleanText(formData.get("foodInstructions")),
     notes: cleanText(formData.get("notes")),
     quantityRemaining,
+    quantityPerDose,
     refillThreshold,
     refillReminderEnabled: formData.get("refillReminderEnabled") === "on",
     lastRefillDate: cleanText(formData.get("lastRefillDate")),
@@ -1426,6 +1440,7 @@ function renderMedicationDetail(med) {
     med.reminder?.enabled ? renderOptionalDetailItem("Reminder", `${Number(med.reminder.leadMinutes) || 15} minutes before`) : "",
     refillInfo.estimatedDaysRemaining !== null || refillInfo.isLowSupply ? renderOptionalDetailItem("Estimated supply", refillStatusLabel(med)) : "",
     refillInfo.quantityRemaining !== null ? renderOptionalDetailItem("Quantity remaining", refillQuantityLabel(refillInfo.quantityRemaining)) : "",
+    refillInfo.quantityPerDose !== null ? renderOptionalDetailItem("Quantity per dose", refillQuantityPerDoseLabel(refillInfo.quantityPerDose)) : "",
     refillInfo.refillThreshold !== null ? renderOptionalDetailItem("Low supply threshold", refillThresholdLabel(refillInfo.refillThreshold)) : "",
     refillInfo.refillReminderEnabled ? renderOptionalDetailItem("Refill reminder", "On") : "",
     renderOptionalDetailItem("Last refill", refillInfo.lastRefillDate),
@@ -1621,7 +1636,7 @@ function renderMedicationForm(med = null) {
                         <input type="checkbox" name="slot-${slot.id}" ${value.checked ? "checked" : ""} />
                         ${slot.label}
                       </label>
-                      <input type="time" name="time-${slot.id}" value="${escapeAttribute(value.time || slot.time)}" aria-label="${slot.label} time" />
+                      <input class="time-entry" type="text" name="time-${slot.id}" value="${escapeAttribute(value.time || slot.time)}" placeholder="8 AM or 18:00" aria-label="${slot.label} time" />
                     </div>
                   `;
                 })
@@ -1688,6 +1703,18 @@ function renderMedicationForm(med = null) {
                   step="0.5"
                   value="${escapeAttribute(med?.quantityRemaining ?? "")}"
                   placeholder="e.g. 14"
+                />
+              </div>
+              <div class="field">
+                <label for="quantityPerDose">Quantity per dose</label>
+                <input
+                  id="quantityPerDose"
+                  name="quantityPerDose"
+                  type="number"
+                  min="0"
+                  step="0.5"
+                  value="${escapeAttribute(med?.quantityPerDose ?? "")}"
+                  placeholder="e.g. 1"
                 />
               </div>
               <div class="field">

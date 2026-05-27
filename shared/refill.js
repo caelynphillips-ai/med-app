@@ -44,6 +44,11 @@ export function getDailyDoseCount(medication) {
   return Math.max(1, normalizedSchedule(medication).length);
 }
 
+export function normalizeQuantityPerDose(value) {
+  const quantity = normalizeRefillNumber(value);
+  return quantity !== null && quantity > 0 ? quantity : null;
+}
+
 function normalizeDateParts(year, month, day) {
   if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) {
     return null;
@@ -65,24 +70,33 @@ function normalizeYear(value) {
 
 export function getRefillInfo(medication) {
   const quantityRemaining = normalizeRefillNumber(medication?.quantityRemaining);
+  const quantityPerDose = normalizeQuantityPerDose(medication?.quantityPerDose);
   const refillThreshold = normalizeRefillNumber(medication?.refillThreshold);
   const refillReminderEnabled = Boolean(medication?.refillReminderEnabled);
   const lastRefillDate = medication?.lastRefillDate || "";
   const dailyDoseCount = getDailyDoseCount(medication);
-  const estimatedDaysRemaining = quantityRemaining === null ? null : Math.floor(quantityRemaining / dailyDoseCount);
+  const dailyQuantityUse = dailyDoseCount * (quantityPerDose || 1);
+  const estimatedDaysRemaining = quantityRemaining === null ? null : quantityRemaining / dailyQuantityUse;
   const daysUntilThreshold =
     quantityRemaining === null || refillThreshold === null
       ? null
-      : Math.max(0, Math.ceil((quantityRemaining - refillThreshold) / dailyDoseCount));
+      : Math.max(0, Math.ceil((quantityRemaining - refillThreshold) / dailyQuantityUse));
   const isLowSupply = quantityRemaining !== null && refillThreshold !== null && quantityRemaining <= refillThreshold;
 
   return {
+    dailyQuantityUse,
     dailyDoseCount,
     daysUntilThreshold,
     estimatedDaysRemaining,
     isLowSupply,
-    isTracking: quantityRemaining !== null || refillThreshold !== null || refillReminderEnabled || Boolean(lastRefillDate),
+    isTracking:
+      quantityRemaining !== null ||
+      quantityPerDose !== null ||
+      refillThreshold !== null ||
+      refillReminderEnabled ||
+      Boolean(lastRefillDate),
     lastRefillDate,
+    quantityPerDose,
     quantityRemaining,
     refillReminderEnabled,
     refillThreshold,
@@ -99,7 +113,7 @@ export function refillStatusLabel(medication) {
     return "Low supply";
   }
   if (info.estimatedDaysRemaining !== null) {
-    return `About ${info.estimatedDaysRemaining} day${info.estimatedDaysRemaining === 1 ? "" : "s"} left`;
+    return `About ${formatRefillNumber(info.estimatedDaysRemaining)} day${info.estimatedDaysRemaining === 1 ? "" : "s"} left`;
   }
   return "Refill tracking on";
 }
@@ -118,6 +132,14 @@ export function refillThresholdLabel(value, fallback = "Not set") {
     return fallback;
   }
   return `${formatRefillNumber(threshold)} or less`;
+}
+
+export function refillQuantityPerDoseLabel(value, fallback = "Not set") {
+  const quantity = normalizeQuantityPerDose(value);
+  if (quantity === null) {
+    return fallback;
+  }
+  return `${formatRefillNumber(quantity)} per dose`;
 }
 
 export function formatRefillNumber(value) {

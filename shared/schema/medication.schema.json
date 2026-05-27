@@ -34,6 +34,7 @@
     "foodInstructions": { "type": ["string", "null"] },
     "notes": { "type": ["string", "null"] },
     "quantityRemaining": { "type": ["number", "null"], "minimum": 0 },
+    "quantityPerDose": { "type": ["number", "null"], "exclusiveMinimum": 0 },
     "refillThreshold": { "type": ["number", "null"], "minimum": 0 },
     "refillReminderEnabled": { "type": ["boolean", "null"] },
     "lastRefillDate": { "type": ["string", "null"] },

@@ -25,6 +25,7 @@ service cloud.firestore {
         "notes",
         "ownerId",
         "purpose",
+        "quantityPerDose",
         "quantityRemaining",
         "refillReminderEnabled",
         "refillThreshold",

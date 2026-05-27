@@ -1,7 +1,13 @@
 import React from "react";
 import { Alert, StyleSheet, Text, View } from "react-native";
 import { categoryLabels, intakeLabels } from "../../../shared/medicationSchema.js";
-import { getRefillInfo, refillQuantityLabel, refillStatusLabel, refillThresholdLabel } from "../../../shared/refill.js";
+import {
+  getRefillInfo,
+  refillQuantityLabel,
+  refillQuantityPerDoseLabel,
+  refillStatusLabel,
+  refillThresholdLabel,
+} from "../../../shared/refill.js";
 import { normalizedSchedule } from "../../../shared/schedule.js";
 import { formatClock } from "../../../shared/dateTime.js";
 import { ActionButton } from "../components/action-button.js";
@@ -63,6 +69,7 @@ export function MedicationDetailScreen({ medication, onDelete, onNavigate }) {
       ? { label: "Estimated supply", value: refillStatusLabel(medication) }
       : null,
     refillInfo.quantityRemaining !== null ? { label: "Quantity remaining", value: refillQuantityLabel(refillInfo.quantityRemaining) } : null,
+    refillInfo.quantityPerDose !== null ? { label: "Quantity per dose", value: refillQuantityPerDoseLabel(refillInfo.quantityPerDose) } : null,
     refillInfo.refillThreshold !== null ? { label: "Low supply threshold", value: refillThresholdLabel(refillInfo.refillThreshold) } : null,
     refillInfo.refillReminderEnabled ? { label: "Refill reminder", value: "On" } : null,
     hasDetailValue(refillInfo.lastRefillDate) ? { label: "Last refill", value: refillInfo.lastRefillDate, wide: true } : null,

@@ -260,6 +260,7 @@ function notificationSignature(medication) {
     leadMinutes: normalizedLeadMinutes(medication.reminder?.leadMinutes),
     name: medication.name || "",
     notificationVersion: NOTIFICATION_SIGNATURE_VERSION,
+    quantityPerDose: refillInfo.quantityPerDose,
     quantityRemaining: refillInfo.quantityRemaining,
     refillReminderEnabled: refillInfo.refillReminderEnabled,
     refillThreshold: refillInfo.refillThreshold,

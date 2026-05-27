@@ -52,6 +52,7 @@ describe("Firestore medication rules", () => {
       updateDoc(medicationRef, {
         dosage: "20 mg",
         quantityRemaining: 12,
+        quantityPerDose: 2,
         refillThreshold: 5,
         refillReminderEnabled: true,
         lastRefillDate: "2026-05-23",
@@ -78,6 +79,7 @@ describe("Firestore medication rules", () => {
           url: "https://example.invalid/label.png",
         },
         quantityRemaining: 9,
+        quantityPerDose: 0.5,
         refillThreshold: 3,
         refillReminderEnabled: true,
         lastRefillDate: "2026-05-01",
@@ -200,6 +202,7 @@ function validMedication(uid) {
     foodInstructions: "Take with water",
     notes: "Check blood pressure regularly.",
     quantityRemaining: null,
+    quantityPerDose: null,
     refillThreshold: null,
     refillReminderEnabled: false,
     lastRefillDate: "",

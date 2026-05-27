@@ -1,4 +1,5 @@
 import { defaultScheduleSlots } from "./medicationSchema.js";
+import { minutesFromTime } from "./dateTime.js";
 
 function slug(value) {
   return String(value || "dose").replace(/[^a-z0-9_-]/gi, "_");
@@ -10,10 +11,7 @@ function titleCase(value) {
     .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
-export function minutesFromTime(time = "00:00") {
-  const [hours, minutes] = String(time).split(":").map(Number);
-  return (Number.isFinite(hours) ? hours : 0) * 60 + (Number.isFinite(minutes) ? minutes : 0);
-}
+export { minutesFromTime };
 
 export function normalizedSchedule(med, slots = defaultScheduleSlots) {
   if (Array.isArray(med?.schedule) && med.schedule.length) {

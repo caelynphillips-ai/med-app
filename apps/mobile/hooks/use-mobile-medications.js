@@ -243,6 +243,7 @@ export function useMobileMedications() {
       foodInstructions: medication.foodInstructions || "",
       notes: medication.notes || "",
       quantityRemaining: medication.quantityRemaining ?? null,
+      quantityPerDose: medication.quantityPerDose ?? null,
       refillThreshold: medication.refillThreshold ?? null,
       refillReminderEnabled: Boolean(medication.refillReminderEnabled),
       lastRefillDate: medication.lastRefillDate || "",
