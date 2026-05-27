@@ -6,6 +6,10 @@ import { statusLabel } from "../../../shared/doseStatus.js";
 import { colors, radius, shadows, spacing, typography } from "../theme/tokens.js";
 import { StatusButton } from "./status-button.js";
 
+function unwrappedClock(time) {
+  return formatClock(time).replace(/\s+/g, "\u00A0");
+}
+
 export function DoseCard({ dose, onEditMedication, onOpenDetails, onStatusChange }) {
   const category = categoryLabels[dose.med.category] || dose.med.category || "Medication";
   const dosage = dose.med.dosage?.trim() || "Add dosage";
@@ -19,8 +23,8 @@ export function DoseCard({ dose, onEditMedication, onOpenDetails, onStatusChange
   return (
     <View style={styles.card}>
       <View style={styles.timeRail}>
-        <Text selectable style={styles.time}>
-          {formatClock(dose.time)}
+        <Text adjustsFontSizeToFit minimumFontScale={0.82} numberOfLines={1} selectable style={styles.time}>
+          {unwrappedClock(dose.time)}
         </Text>
         <Text selectable style={styles.slot}>
           {dose.label}
@@ -247,8 +251,9 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255, 255, 255, 0.14)",
     gap: spacing.xs,
     justifyContent: "center",
-    padding: spacing.lg,
-    width: 104,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.lg,
+    width: 116,
   },
   titleColumn: {
     flex: 1,

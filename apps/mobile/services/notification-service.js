@@ -6,6 +6,7 @@ import { formatRefillNumber, getRefillInfo } from "../../../shared/refill.js";
 import { normalizedSchedule } from "../../../shared/schedule.js";
 
 const TRACKED_NOTIFICATIONS_KEY = "med-organizer:tracked-notifications:v1";
+const NOTIFICATION_SIGNATURE_VERSION = 2;
 export const MEDICATION_REMINDER_CHANNEL_ID = "medication-reminders";
 
 if (isMedicationNotificationPlatform()) {
@@ -120,8 +121,7 @@ export async function rescheduleMedicationNotifications(medication, { requestPer
   try {
     if (medication.reminder?.enabled) {
       for (const slot of normalizedSchedule(medication)) {
-        const notification = await scheduleMedicationSlotNotification(medication, slot);
-        notifications.push(notification);
+        notifications.push(...(await scheduleMedicationSlotNotifications(medication, slot)));
       }
     }
     if (getRefillInfo(medication).reminderEligible) {
@@ -187,18 +187,30 @@ async function configureAndroidReminderChannel() {
   });
 }
 
-async function scheduleMedicationSlotNotification(medication, slot) {
+async function scheduleMedicationSlotNotifications(medication, slot) {
   const leadMinutes = normalizedLeadMinutes(medication.reminder?.leadMinutes);
-  const reminderMinutes = minutesFromTime(slot.time) - leadMinutes;
-  const reminderTime = clockParts(reminderMinutes);
+  const slotMinutes = minutesFromTime(slot.time);
+  const notifications = [];
+
+  if (leadMinutes > 0) {
+    notifications.push(await scheduleDoseNotification(medication, slot, slotMinutes - leadMinutes, "lead", leadMinutes));
+  }
+
+  notifications.push(await scheduleDoseNotification(medication, slot, slotMinutes, "dose"));
+  return notifications;
+}
+
+async function scheduleDoseNotification(medication, slot, triggerMinutes, reminderType, leadMinutes = 0) {
+  const reminderTime = clockParts(triggerMinutes);
   const identifier = await Notifications.scheduleNotificationAsync({
     content: {
       autoDismiss: true,
-      body: notificationBody(medication, slot, reminderMinutes),
+      body: notificationBody(medication, slot, reminderType, leadMinutes),
       color: "#0080FF",
       data: {
         kind: "medication-reminder",
         medicationId: medication.id,
+        reminderType,
         scheduledTime: slot.time,
         slotId: slot.id,
       },
@@ -217,9 +229,10 @@ async function scheduleMedicationSlotNotification(medication, slot) {
 
   return {
     identifier,
-    reminderTime: formatMinutes(reminderMinutes),
+    reminderTime: formatMinutes(triggerMinutes),
     scheduledTime: slot.time,
     slotId: slot.id,
+    type: reminderType,
   };
 }
 
@@ -231,12 +244,13 @@ function shouldScheduleMedication(medication) {
   );
 }
 
-function notificationBody(medication, slot, reminderMinutes) {
-  const dosage = medication.dosage ? `${medication.dosage} - ` : "";
-  const reminderLabel = reminderMinutes === minutesFromTime(slot.time)
-    ? ""
-    : ` Reminder set for ${formatMinutes(reminderMinutes)}.`;
-  return `${medication.name} - ${dosage}${slot.label} dose at ${formatClock(slot.time)}.${reminderLabel}`;
+function notificationBody(medication, slot, reminderType, leadMinutes = 0) {
+  const doseTime = formatClock(slot.time);
+  const dosage = medication.dosage ? ` ${medication.dosage}` : "";
+  if (reminderType === "lead") {
+    return `${medication.name}${dosage} in ${leadMinutes} ${leadMinutes === 1 ? "minute" : "minutes"}. ${slot.label} dose at ${doseTime}.`;
+  }
+  return `Time to take ${medication.name}${dosage}. ${slot.label} dose at ${doseTime}.`;
 }
 
 function notificationSignature(medication) {
@@ -245,6 +259,7 @@ function notificationSignature(medication) {
     dosage: medication.dosage || "",
     leadMinutes: normalizedLeadMinutes(medication.reminder?.leadMinutes),
     name: medication.name || "",
+    notificationVersion: NOTIFICATION_SIGNATURE_VERSION,
     quantityRemaining: refillInfo.quantityRemaining,
     refillReminderEnabled: refillInfo.refillReminderEnabled,
     refillThreshold: refillInfo.refillThreshold,
