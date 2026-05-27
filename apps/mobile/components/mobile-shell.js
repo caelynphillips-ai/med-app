@@ -15,7 +15,11 @@ export function MobileShell({ activeRoute, children, error, onNavigate, user, on
 
   return (
     <View style={styles.shell}>
-      <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.content}>
+      <ScrollView
+        contentInsetAdjustmentBehavior="automatic"
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+      >
         <AppHeader />
 
         <View style={styles.authRow}>
@@ -166,10 +170,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderCurve: "continuous",
     borderRadius: radius.lg,
+    columnGap: spacing.sm,
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: spacing.sm,
-    padding: spacing.sm,
+    padding: spacing.xs,
+    rowGap: spacing.xs,
   },
   navIcon: {
     backgroundColor: colors.primarySoft,
@@ -177,11 +182,11 @@ const styles = StyleSheet.create({
     color: colors.darkPrimary,
     fontSize: typography.small,
     fontWeight: "900",
-    height: 28,
-    lineHeight: 28,
+    height: 26,
+    lineHeight: 26,
     overflow: "hidden",
     textAlign: "center",
-    width: 28,
+    width: 26,
   },
   navIconActive: {
     backgroundColor: colors.onPrimary,
@@ -196,10 +201,10 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     flexShrink: 1,
     flexDirection: "row",
-    gap: spacing.sm,
+    gap: spacing.xs,
     justifyContent: "center",
-    minWidth: 96,
-    minHeight: 48,
+    minWidth: 92,
+    minHeight: 44,
   },
   navItemActive: {
     backgroundColor: colors.cardEmphasis,

@@ -32,9 +32,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderCurve: "continuous",
     borderRadius: radius.pill,
-    minHeight: 42,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
+    minHeight: 38,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
   },
   pressed: {
     opacity: 0.78,

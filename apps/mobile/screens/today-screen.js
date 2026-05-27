@@ -7,7 +7,7 @@ import { SummaryCard } from "../components/summary-card.js";
 import { useTodayDoses } from "../hooks/use-today-doses.js";
 import { colors, spacing, typography } from "../theme/tokens.js";
 
-export function TodayScreen({ medications, statuses, onEditMedication, onMarkDose, onOpenMedication }) {
+export function TodayScreen({ medications, statuses, onAddMedication, onEditMedication, onMarkDose, onOpenMedication }) {
   const { doses, medications: visibleMedications, summary, markDose } = useTodayDoses({
     medications,
     statuses,
@@ -61,11 +61,21 @@ export function TodayScreen({ medications, statuses, onEditMedication, onMarkDos
             </Text>
           )}
         </View>
-        <View style={styles.progressPill}>
-          <Text selectable style={styles.progressText}>
-            {progressCopy}
-          </Text>
-        </View>
+        {hasDoses ? (
+          <View style={styles.progressPill}>
+            <Text selectable style={styles.progressText}>
+              {progressCopy}
+            </Text>
+          </View>
+        ) : (
+          <Pressable
+            accessibilityRole="button"
+            onPress={onAddMedication}
+            style={({ pressed }) => [styles.progressPill, pressed && styles.pressed]}
+          >
+            <Text style={styles.progressText}>{progressCopy}</Text>
+          </Pressable>
+        )}
       </View>
 
       {hasDoses ? (
@@ -113,14 +123,20 @@ export function TodayScreen({ medications, statuses, onEditMedication, onMarkDos
             Reminders
           </Text>
           {reminderCards.map((medication) => (
-            <View key={medication.name} style={styles.reminderCard}>
+            <Pressable
+              accessibilityLabel={`Open details for ${medication.name}`}
+              accessibilityRole="button"
+              key={medication.id || medication.name}
+              onPress={() => onOpenMedication(medication.id)}
+              style={({ pressed }) => [styles.reminderCard, pressed && styles.pressed]}
+            >
               <Text selectable style={styles.reminderText}>
                 {formatClock(medication.schedule?.[0]?.time || "09:00")} dose
               </Text>
               <Text selectable style={styles.reminderTitle}>
                 {medication.name} - {medication.reminder.leadMinutes} min before
               </Text>
-            </View>
+            </Pressable>
           ))}
         </View>
       ) : null}
@@ -284,7 +300,7 @@ const styles = StyleSheet.create({
   summaryGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: spacing.md,
+    gap: spacing.sm,
   },
   title: {
     color: colors.text,

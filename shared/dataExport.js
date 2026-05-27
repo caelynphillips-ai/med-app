@@ -34,7 +34,7 @@ export function buildMedicationListTextExport({
   medications = [],
 } = {}) {
   const lines = [
-    "Med Organizer medication list",
+    "Azur Well Medication List",
     `Generated: ${generatedAt}`,
     "",
   ];

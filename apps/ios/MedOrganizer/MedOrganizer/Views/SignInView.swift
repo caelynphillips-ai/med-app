@@ -15,7 +15,7 @@ struct SignInView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Med Organizer")
                         .font(.title2.bold())
-                    Text("Medication and vitamin schedule")
+                    Text("Medication and supplement tracker")
                         .foregroundStyle(.secondary)
                 }
             }

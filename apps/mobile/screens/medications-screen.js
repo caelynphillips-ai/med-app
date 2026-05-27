@@ -121,6 +121,11 @@ export function MedicationsScreen({ medications, onDelete, onNavigate }) {
 }
 
 function MedicationListControls({ controls, filtersActive, onClear, onUpdate }) {
+  const [filtersOpen, setFiltersOpen] = React.useState(false);
+  const [sortOpen, setSortOpen] = React.useState(false);
+  const activeFilterCount = Number((controls.category || "all") !== "all") + Number((controls.utility || "all") !== "all");
+  const selectedSort = medicationSortOptions.find((option) => option.value === controls.sort) || medicationSortOptions[0];
+
   return (
     <View style={styles.controlsCard}>
       <View style={styles.field}>
@@ -137,29 +142,63 @@ function MedicationListControls({ controls, filtersActive, onClear, onUpdate }) 
         />
       </View>
 
-      <FilterGroup
-        label="Category"
-        options={medicationCategoryFilterOptions}
-        selectedValue={controls.category}
-        onSelect={(value) => onUpdate("category", value)}
-      />
-      <FilterGroup
-        label="Status"
-        options={medicationUtilityFilterOptions}
-        selectedValue={controls.utility}
-        onSelect={(value) => onUpdate("utility", value)}
-      />
-      <FilterGroup
-        label="Sort"
-        options={medicationSortOptions}
-        selectedValue={controls.sort}
-        onSelect={(value) => onUpdate("sort", value)}
-      />
+      <View style={styles.controlsToolbar}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ expanded: filtersOpen }}
+          onPress={() => setFiltersOpen((open) => !open)}
+          style={({ pressed }) => [styles.controlToggle, filtersOpen && styles.controlToggleActive, pressed && styles.pressed]}
+        >
+          <Text style={[styles.controlToggleText, filtersOpen && styles.controlToggleTextActive]}>
+            {activeFilterCount ? `Filter (${activeFilterCount})` : "Filter"}
+          </Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ expanded: sortOpen }}
+          onPress={() => setSortOpen((open) => !open)}
+          style={({ pressed }) => [styles.controlToggle, sortOpen && styles.controlToggleActive, pressed && styles.pressed]}
+        >
+          <Text style={[styles.controlToggleText, sortOpen && styles.controlToggleTextActive]}>
+            Sort: {selectedSort.label}
+          </Text>
+        </Pressable>
+        {filtersActive ? (
+          <Pressable accessibilityRole="button" onPress={onClear} style={({ pressed }) => [styles.clearInline, pressed && styles.pressed]}>
+            <Text style={styles.clearInlineText}>Clear</Text>
+          </Pressable>
+        ) : null}
+      </View>
 
-      {filtersActive ? (
-        <ActionButton tone="quiet" onPress={onClear}>
-          Clear filters
-        </ActionButton>
+      {filtersOpen ? (
+        <View style={styles.advancedPanel}>
+          <FilterGroup
+            label="Category"
+            options={medicationCategoryFilterOptions}
+            selectedValue={controls.category}
+            onSelect={(value) => onUpdate("category", value)}
+          />
+          <FilterGroup
+            label="Status"
+            options={medicationUtilityFilterOptions}
+            selectedValue={controls.utility}
+            onSelect={(value) => onUpdate("utility", value)}
+          />
+        </View>
+      ) : null}
+
+      {sortOpen ? (
+        <View style={styles.advancedPanel}>
+          <FilterGroup
+            label="Sort by"
+            options={medicationSortOptions}
+            selectedValue={controls.sort}
+            onSelect={(value) => {
+              onUpdate("sort", value);
+              setSortOpen(false);
+            }}
+          />
+        </View>
       ) : null}
     </View>
   );
@@ -284,6 +323,14 @@ function PromptChip({ label, onPress }) {
 }
 
 const styles = StyleSheet.create({
+  advancedPanel: {
+    borderColor: colors.border,
+    borderCurve: "continuous",
+    borderRadius: radius.md,
+    borderWidth: 1,
+    gap: spacing.md,
+    padding: spacing.md,
+  },
   card: {
     ...shadows.card,
     backgroundColor: colors.cardEmphasis,
@@ -376,14 +423,61 @@ const styles = StyleSheet.create({
     fontSize: typography.label,
     fontWeight: "900",
   },
+  controlToggle: {
+    alignItems: "center",
+    backgroundColor: colors.white,
+    borderColor: colors.border,
+    borderCurve: "continuous",
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    flexGrow: 1,
+    justifyContent: "center",
+    minHeight: 42,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  controlToggleActive: {
+    backgroundColor: colors.primarySoft,
+    borderColor: colors.darkPrimary,
+  },
+  controlToggleText: {
+    color: colors.text,
+    fontSize: typography.small,
+    fontWeight: "900",
+    textAlign: "center",
+  },
+  controlToggleTextActive: {
+    color: colors.darkPrimary,
+  },
+  controlsToolbar: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+  },
   controlsCard: {
     backgroundColor: colors.surface,
     borderColor: colors.border,
     borderCurve: "continuous",
     borderRadius: radius.lg,
     borderWidth: 1,
-    gap: spacing.md,
-    padding: spacing.lg,
+    gap: spacing.sm,
+    padding: spacing.md,
+  },
+  clearInline: {
+    alignItems: "center",
+    borderColor: colors.border,
+    borderCurve: "continuous",
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    justifyContent: "center",
+    minHeight: 42,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  clearInlineText: {
+    color: colors.darkPrimary,
+    fontSize: typography.small,
+    fontWeight: "900",
   },
   field: {
     gap: spacing.sm,

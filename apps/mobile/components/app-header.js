@@ -15,7 +15,7 @@ export function AppHeader() {
           Azur Well
         </Text>
         <Text selectable style={styles.subtitle}>
-          Medication and vitamin schedule
+          Medication and supplement tracker
         </Text>
       </View>
     </View>

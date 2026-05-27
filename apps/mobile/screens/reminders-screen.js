@@ -1,5 +1,5 @@
 import React from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { normalizedSchedule } from "../../../shared/schedule.js";
 import { formatClock } from "../../../shared/dateTime.js";
 import { ActionButton } from "../components/action-button.js";
@@ -28,7 +28,13 @@ export function RemindersScreen({ medications, onNavigate }) {
 
       {reminders.length ? (
         reminders.map((medication) => (
-          <View key={medication.id} style={styles.card}>
+          <Pressable
+            accessibilityLabel={`Open details for ${medication.name}`}
+            accessibilityRole="button"
+            key={medication.id}
+            onPress={() => onNavigate({ route: routes.medicationDetail, medicationId: medication.id })}
+            style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
+          >
             <Text selectable style={styles.name}>
               {medication.name}
             </Text>
@@ -40,7 +46,7 @@ export function RemindersScreen({ medications, onNavigate }) {
                 .map((slot) => `${slot.label} ${formatClock(slot.time)}`)
                 .join(", ")}
             </Text>
-          </View>
+          </Pressable>
         ))
       ) : (
         <View style={styles.empty}>
@@ -67,6 +73,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     gap: spacing.xs,
     padding: spacing.lg,
+  },
+  cardPressed: {
+    opacity: 0.78,
   },
   detail: {
     color: colors.text,

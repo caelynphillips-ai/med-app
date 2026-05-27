@@ -747,7 +747,7 @@ function renderTopBar() {
         </div>
         <div>
           <h1>Azur Well</h1>
-          <p>Medication and vitamin schedule</p>
+          <p>Medication and supplement tracker</p>
         </div>
       </div>
       <div class="top-actions">
@@ -1098,11 +1098,11 @@ function renderPrivacy() {
 
         <article class="card">
           <h3 class="section-title">Export readable list</h3>
-          <p class="subtle">Download a readable copy of your medications, schedule, notes, and details.</p>
+          <p class="subtle">Download a readable summary of your saved medications and schedules.</p>
           <ul class="export-checklist" aria-label="Export includes">
-            <li>Medication details, schedules, instructions, and notes</li>
-            <li>Reminder and refill tracking settings</li>
-            <li>Attachment metadata and recent dose history</li>
+            <li>Medication names, categories, purpose, and dosage</li>
+            <li>Schedule times and instructions</li>
+            <li>A simple text format for sharing or saving</li>
           </ul>
           <div class="toolbar" style="margin-top: 14px;">
             <button class="button primary" type="button" data-action="export-medication-text" ${state.busy ? "disabled" : ""}>Export readable list</button>

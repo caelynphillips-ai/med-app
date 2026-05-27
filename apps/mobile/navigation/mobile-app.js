@@ -71,7 +71,7 @@ function renderRoute(route, mobile, selectedMedication, navigate) {
   }
 
   if (route.route === routes.medicationForm) {
-    return <MedicationFormScreen medication={selectedMedication} onNavigate={navigate} onSave={mobile.saveMedication} />;
+    return <MedicationFormScreen medication={selectedMedication} onNavigate={navigate} onSave={mobile.saveMedication} returnRoute={route.returnRoute} />;
   }
 
   if (route.route === routes.reminders) {
@@ -104,6 +104,7 @@ function renderRoute(route, mobile, selectedMedication, navigate) {
     <TodayScreen
       medications={mobile.medications}
       statuses={mobile.statuses}
+      onAddMedication={() => navigate({ route: routes.medicationForm, returnRoute: routes.today })}
       onEditMedication={(medicationId) => navigate({ route: routes.medicationForm, medicationId })}
       onMarkDose={mobile.markDose}
       onOpenMedication={(medicationId) => navigate({ route: routes.medicationDetail, medicationId })}

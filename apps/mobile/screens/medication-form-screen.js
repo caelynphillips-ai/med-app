@@ -8,7 +8,7 @@ import {
   medicationCategories,
 } from "../../../shared/medicationSchema.js";
 import { commonUseLabel, commonUseValue, parseCommonUses } from "../../../shared/commonUses.js";
-import { normalizeRefillNumber } from "../../../shared/refill.js";
+import { normalizeRefillDateInput, normalizeRefillNumber } from "../../../shared/refill.js";
 import { normalizedSchedule } from "../../../shared/schedule.js";
 import { normalizeCategory } from "../../../shared/rxterms.js";
 import { ActionButton } from "../components/action-button.js";
@@ -24,7 +24,7 @@ import {
 } from "../services/suggestion-service.js";
 import { colors, radius, spacing, typography } from "../theme/tokens.js";
 
-export function MedicationFormScreen({ medication, onNavigate, onSave }) {
+export function MedicationFormScreen({ medication, onNavigate, onSave, returnRoute }) {
   const editing = Boolean(medication?.id);
   const [form, setForm] = useState(() => formFromMedication(medication));
   const [schedule, setSchedule] = useState(() => scheduleFromMedication(medication));
@@ -164,6 +164,11 @@ export function MedicationFormScreen({ medication, onNavigate, onSave }) {
     }
     const quantityRemaining = normalizeRefillNumber(form.quantityRemaining);
     const refillThreshold = normalizeRefillNumber(form.refillThreshold);
+    const lastRefillDate = normalizeRefillDateInput(form.lastRefillDate);
+    if (lastRefillDate === null) {
+      setError("Enter the last refill date as MM-DD-YYYY or DD-MM-YYYY.");
+      return;
+    }
     if (form.refillReminderEnabled && (quantityRemaining === null || refillThreshold === null)) {
       setError("Add quantity remaining and a low supply threshold to turn on refill reminders.");
       return;
@@ -199,7 +204,7 @@ export function MedicationFormScreen({ medication, onNavigate, onSave }) {
         quantityRemaining,
         refillThreshold,
         refillReminderEnabled: form.refillReminderEnabled,
-        lastRefillDate: form.lastRefillDate.trim(),
+        lastRefillDate,
         reminder: {
           enabled: form.reminderEnabled,
           leadMinutes: Number(form.reminderLeadMinutes) || 15,
@@ -212,7 +217,11 @@ export function MedicationFormScreen({ medication, onNavigate, onSave }) {
         medicationPayload,
         medication?.id || "",
       );
-      onNavigate({ route: medication?.id ? routes.medicationDetail : routes.medications, medicationId: medication?.id || savedId });
+      onNavigate(
+        medication?.id
+          ? { route: routes.medicationDetail, medicationId: medication.id || savedId }
+          : { route: returnRoute || routes.medications },
+      );
     } catch (err) {
       setError(err.message || String(err));
     } finally {
@@ -231,10 +240,10 @@ export function MedicationFormScreen({ medication, onNavigate, onSave }) {
             {editing ? "Edit medication" : "Add medication"}
           </Text>
           <Text selectable style={styles.subtitle}>
-            Use the label as the source of truth. Every suggestion stays editable before saving.
+            You can edit everything before saving.
           </Text>
         </View>
-        <ActionButton disabled={saving} tone="quiet" onPress={() => onNavigate({ route: medication?.id ? routes.medicationDetail : routes.medications, medicationId: medication?.id })}>
+        <ActionButton disabled={saving} tone="quiet" onPress={() => onNavigate({ route: medication?.id ? routes.medicationDetail : returnRoute || routes.medications, medicationId: medication?.id })}>
           Cancel
         </ActionButton>
       </View>
@@ -250,7 +259,6 @@ export function MedicationFormScreen({ medication, onNavigate, onSave }) {
       <View style={styles.formCard}>
         <SectionLabel
           title="Medication basics"
-          body="Start with the name, purpose, category, and dosage you want to see later."
         />
 
         <Field label="Name" required>
@@ -348,7 +356,7 @@ export function MedicationFormScreen({ medication, onNavigate, onSave }) {
 
         <SectionLabel
           title="Schedule"
-          body="Choose when this medication appears in the daily schedule. Times per day should match the time slots you turn on."
+          body="Choose when you take this medication each day."
         />
 
         <View style={styles.row}>
@@ -362,7 +370,7 @@ export function MedicationFormScreen({ medication, onNavigate, onSave }) {
               value={String(form.timesPerDay)}
             />
             <Text selectable style={styles.helperText}>
-              Use the number of daily doses on the label.
+              Add the number of doses you take each day.
             </Text>
           </Field>
         </View>
@@ -420,7 +428,7 @@ export function MedicationFormScreen({ medication, onNavigate, onSave }) {
         <View style={styles.switchRow}>
           <View style={styles.switchText}>
             <Text style={styles.switchTitle}>Turn on dose reminders</Text>
-            <Text style={styles.switchCopy}>This shows reminder cards and, with permission, schedules calm phone reminders.</Text>
+            <Text style={styles.switchCopy}>Get reminders before it's time to take this medication.</Text>
           </View>
           <Switch
             onValueChange={(value) => updateField("reminderEnabled", value)}
@@ -446,7 +454,7 @@ export function MedicationFormScreen({ medication, onNavigate, onSave }) {
 
         <SectionLabel
           title="Refill tracking"
-          body="Optional supply details can help with low-supply reminders."
+          body="Track how much you have left and get refill reminders."
         />
 
         <View style={styles.field}>
@@ -475,7 +483,7 @@ export function MedicationFormScreen({ medication, onNavigate, onSave }) {
           <Field label="Last refill date">
             <TextInput
               onChangeText={(value) => updateField("lastRefillDate", value)}
-              placeholder="YYYY-MM-DD"
+              placeholder="Add date of last refill"
               placeholderTextColor={colors.mutedText}
               style={styles.input}
               value={form.lastRefillDate}
@@ -484,7 +492,6 @@ export function MedicationFormScreen({ medication, onNavigate, onSave }) {
           <View style={styles.switchRow}>
             <View style={styles.switchText}>
               <Text style={styles.switchTitle}>Remind me when supply is low</Text>
-              <Text style={styles.switchCopy}>Use the same unit you count at home, such as tablets, capsules, patches, or doses.</Text>
             </View>
             <Switch
               onValueChange={(value) => updateField("refillReminderEnabled", value)}
@@ -497,7 +504,6 @@ export function MedicationFormScreen({ medication, onNavigate, onSave }) {
 
         <SectionLabel
           title="Notes"
-          body="Keep doctor instructions, refill notes, side effects, or attachment details here."
         />
 
         <Field label="Additional notes">
@@ -513,7 +519,7 @@ export function MedicationFormScreen({ medication, onNavigate, onSave }) {
         </Field>
 
         <View style={styles.footer}>
-          <ActionButton disabled={saving} tone="quiet" onPress={() => onNavigate({ route: medication?.id ? routes.medicationDetail : routes.medications, medicationId: medication?.id })}>
+          <ActionButton disabled={saving} tone="quiet" onPress={() => onNavigate({ route: medication?.id ? routes.medicationDetail : returnRoute || routes.medications, medicationId: medication?.id })}>
             Cancel
           </ActionButton>
           <ActionButton disabled={saving} onPress={submit}>
@@ -531,9 +537,11 @@ function SectionLabel({ body, title }) {
       <Text selectable style={styles.sectionTitle}>
         {title}
       </Text>
-      <Text selectable style={styles.sectionCopy}>
-        {body}
-      </Text>
+      {body ? (
+        <Text selectable style={styles.sectionCopy}>
+          {body}
+        </Text>
+      ) : null}
     </View>
   );
 }

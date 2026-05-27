@@ -1,8 +1,23 @@
 import React from "react";
-import { Pressable, StyleSheet, Text } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { colors, radius, spacing, typography } from "../theme/tokens.js";
 
 export function Chip({ children, selected, removable, onPress, onRemove }) {
+  const content = (
+    <>
+      <Text style={styles.text}>{children}</Text>
+      {removable ? (
+        <Pressable accessibilityLabel={`Remove ${children}`} onPress={onRemove} hitSlop={8}>
+          <Text style={styles.remove}>x</Text>
+        </Pressable>
+      ) : null}
+    </>
+  );
+
+  if (!onPress) {
+    return <View style={[styles.chip, selected && styles.selected]}>{content}</View>;
+  }
+
   return (
     <Pressable
       accessibilityRole="button"
@@ -13,12 +28,7 @@ export function Chip({ children, selected, removable, onPress, onRemove }) {
         pressed && styles.pressed,
       ]}
     >
-      <Text style={styles.text}>{children}</Text>
-      {removable ? (
-        <Pressable accessibilityLabel={`Remove ${children}`} onPress={onRemove} hitSlop={8}>
-          <Text style={styles.remove}>x</Text>
-        </Pressable>
-      ) : null}
+      {content}
     </Pressable>
   );
 }

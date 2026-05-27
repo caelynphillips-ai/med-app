@@ -96,12 +96,12 @@ export function PrivacyScreen({ busy, medications, onDeleteAccount, onSignOut, u
           Export readable list
         </Text>
         <Text selectable style={styles.body}>
-          Download a readable copy of your medications, schedule, notes, and details.
+          Download a readable summary of your saved medications and schedules.
         </Text>
         <View style={styles.checklist}>
-          <Text selectable style={styles.checkItem}>Medication details, schedules, instructions, and notes</Text>
-          <Text selectable style={styles.checkItem}>Reminder and refill tracking settings</Text>
-          <Text selectable style={styles.checkItem}>Attachment metadata and recent dose history</Text>
+          <Text selectable style={styles.checkItem}>Medication names, categories, purpose, and dosage</Text>
+          <Text selectable style={styles.checkItem}>Schedule times and instructions</Text>
+          <Text selectable style={styles.checkItem}>A simple text format for sharing or saving</Text>
         </View>
         <View style={styles.buttonRow}>
           <ActionButton disabled={disabled} onPress={shareExport}>

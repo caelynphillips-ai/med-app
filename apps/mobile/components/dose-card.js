@@ -57,9 +57,11 @@ export function DoseCard({ dose, onEditMedication, onOpenDetails, onStatusChange
           {intakeMissing ? (
             <PromptChip label={intake} onPress={onEditMedication} />
           ) : (
-            <Text selectable style={styles.intake}>
-              {intake}
-            </Text>
+            <View style={styles.intakeChip}>
+              <Text selectable style={styles.intake}>
+                {intake}
+              </Text>
+            </View>
           )}
         </View>
 
@@ -103,12 +105,12 @@ function PromptChip({ label, onPress }) {
 
 const styles = StyleSheet.create({
   actionRow: {
-    alignItems: "flex-end",
+    alignItems: "center",
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: spacing.md,
+    gap: spacing.sm,
     justifyContent: "space-between",
-    marginTop: spacing.sm,
+    paddingTop: spacing.xs,
   },
   body: {
     flex: 1,
@@ -116,10 +118,10 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
   },
   buttonRow: {
-    flex: 1,
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: spacing.sm,
+    gap: spacing.xs,
+    rowGap: spacing.xs,
   },
   card: {
     ...shadows.card,
@@ -170,11 +172,22 @@ const styles = StyleSheet.create({
     fontSize: typography.small,
     fontWeight: "800",
   },
+  intakeChip: {
+    backgroundColor: "rgba(255, 255, 255, 0.12)",
+    borderColor: "rgba(255, 255, 255, 0.22)",
+    borderCurve: "continuous",
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    flexShrink: 1,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+  },
   metaRow: {
     alignItems: "center",
     flexDirection: "row",
     flexWrap: "wrap",
     gap: spacing.sm,
+    paddingTop: spacing.xs,
   },
   name: {
     color: colors.onPrimary,
@@ -212,8 +225,10 @@ const styles = StyleSheet.create({
   },
   statusChip: {
     backgroundColor: "rgba(255, 255, 255, 0.16)",
+    borderColor: "rgba(255, 255, 255, 0.24)",
     borderCurve: "continuous",
     borderRadius: radius.pill,
+    borderWidth: 1,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
   },

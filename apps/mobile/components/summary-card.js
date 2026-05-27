@@ -25,8 +25,9 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     flex: 1,
     gap: spacing.xs,
-    minWidth: 150,
-    padding: spacing.lg,
+    minHeight: 86,
+    minWidth: 92,
+    padding: spacing.md,
   },
   label: {
     color: colors.onEmphasisMuted,
@@ -35,7 +36,7 @@ const styles = StyleSheet.create({
   },
   value: {
     color: colors.onPrimary,
-    fontSize: 24,
+    fontSize: 22,
     fontVariant: ["tabular-nums"],
     fontWeight: "900",
   },
