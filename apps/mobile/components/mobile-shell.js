@@ -66,7 +66,10 @@ export function MobileShell({ activeRoute, children, error, onNavigate, user, on
           </View>
         ) : null}
 
-        <View style={styles.nav}>
+        <View accessibilityLabel="Main menu" style={styles.nav}>
+          <Text selectable style={styles.navTitle}>
+            Menu
+          </Text>
           {navItems.map((item) => {
             const active = item.route === activeRoute;
             return (
@@ -333,6 +336,15 @@ const styles = StyleSheet.create({
   },
   navLabelActive: {
     color: colors.onPrimary,
+  },
+  navTitle: {
+    color: colors.mutedText,
+    fontSize: typography.label,
+    fontWeight: "900",
+    paddingHorizontal: spacing.sm,
+    paddingTop: spacing.xs,
+    textTransform: "uppercase",
+    width: "100%",
   },
   lockBody: {
     borderRadius: 3,

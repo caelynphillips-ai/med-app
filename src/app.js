@@ -1588,7 +1588,7 @@ function renderMedicationForm(med = null) {
                 id="purpose"
                 name="purpose"
                 value="${escapeAttribute(med?.purpose || "")}"
-                placeholder="Add a purpose or select common uses, e.g. blood pressure"
+                placeholder="Add a purpose or select common uses"
               />
               <div id="selected-use-chips" class="selected-use-row" aria-label="Selected common uses">
                 ${renderSelectedUseChips(med?.purpose || "")}

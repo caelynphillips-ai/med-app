@@ -322,7 +322,7 @@ export function MedicationFormScreen({ medication, onNavigate, onSave, returnRou
         <Field label="Common uses / purpose">
           <TextInput
             onChangeText={(value) => updateField("purpose", value)}
-            placeholder="Add a purpose or select common uses, e.g. blood pressure"
+            placeholder="Add a purpose or select common uses"
             placeholderTextColor={colors.mutedText}
             style={styles.input}
             value={form.purpose}

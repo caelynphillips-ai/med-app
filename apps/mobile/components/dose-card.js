@@ -13,10 +13,11 @@ export function DoseCard({ dose, onEditMedication, onOpenDetails, onStatusChange
   const category = categoryLabels[dose.med.category] || dose.med.category || "Medication";
   const dosage = dose.med.dosage?.trim() || "Add dosage";
   const purpose = dose.med.purpose?.trim() || "Add purpose";
-  const intake = intakeLabels[dose.med.intake] || "Add intake note";
+  const intakeDisplay = getIntakeDisplay(dose.med);
+  const intake = intakeDisplay.label;
   const dosageMissing = !dose.med.dosage?.trim();
   const purposeMissing = !dose.med.purpose?.trim();
-  const intakeMissing = !intakeLabels[dose.med.intake];
+  const intakeMissing = intakeDisplay.missing;
   const filledDetails = [dose.med.dosage?.trim(), dose.med.purpose?.trim()].filter(Boolean).join(" - ");
 
   return (
@@ -58,7 +59,7 @@ export function DoseCard({ dose, onEditMedication, onOpenDetails, onStatusChange
             <PromptChip label={intake} onPress={onEditMedication} />
           ) : (
             <View style={styles.intakeChip}>
-              <Text selectable style={styles.intake}>
+              <Text adjustsFontSizeToFit minimumFontScale={0.84} numberOfLines={1} selectable style={styles.intake}>
                 {intake}
               </Text>
             </View>
@@ -93,6 +94,15 @@ export function DoseCard({ dose, onEditMedication, onOpenDetails, onStatusChange
       </View>
     </View>
   );
+}
+
+function getIntakeDisplay(medication) {
+  const intakeKey = typeof medication?.intake === "string" ? medication.intake.trim() : "";
+  const label = Object.prototype.hasOwnProperty.call(intakeLabels, intakeKey) ? intakeLabels[intakeKey] : "";
+  if (!label || label.trim().toLowerCase() === "take with") {
+    return { label: "Add intake note", missing: true };
+  }
+  return { label, missing: false };
 }
 
 function PromptChip({ label, onPress }) {
