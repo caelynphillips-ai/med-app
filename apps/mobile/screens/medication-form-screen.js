@@ -210,6 +210,7 @@ export function MedicationFormScreen({ medication, onNavigate, onSave, returnRou
         return;
       }
       selectedSchedule.push({
+        displayTime: String(rawTime || "").trim(),
         id: slot.id,
         label: slot.label,
         time: normalizedTime,
@@ -252,11 +253,7 @@ export function MedicationFormScreen({ medication, onNavigate, onSave, returnRou
         medicationPayload,
         medication?.id || "",
       );
-      onNavigate(
-        medication?.id
-          ? { route: routes.medicationDetail, medicationId: medication.id || savedId }
-          : { route: returnRoute || routes.medications },
-      );
+      onNavigate(formReturnRoute({ medicationId: medication?.id || savedId, returnRoute, editing }));
     } catch (err) {
       setError(err.message || String(err));
     } finally {
@@ -278,7 +275,7 @@ export function MedicationFormScreen({ medication, onNavigate, onSave, returnRou
             You can edit everything before saving.
           </Text>
         </View>
-        <ActionButton disabled={saving} tone="quiet" onPress={() => onNavigate({ route: medication?.id ? routes.medicationDetail : returnRoute || routes.medications, medicationId: medication?.id })}>
+        <ActionButton disabled={saving} tone="quiet" onPress={() => onNavigate(formReturnRoute({ medicationId: medication?.id, returnRoute, editing }))}>
           Cancel
         </ActionButton>
       </View>
@@ -567,7 +564,7 @@ export function MedicationFormScreen({ medication, onNavigate, onSave, returnRou
         </Field>
 
         <View style={styles.footer}>
-          <ActionButton disabled={saving} tone="quiet" onPress={() => onNavigate({ route: medication?.id ? routes.medicationDetail : returnRoute || routes.medications, medicationId: medication?.id })}>
+          <ActionButton disabled={saving} tone="quiet" onPress={() => onNavigate(formReturnRoute({ medicationId: medication?.id, returnRoute, editing }))}>
             Cancel
           </ActionButton>
           <ActionButton disabled={saving} onPress={submit}>
@@ -632,11 +629,20 @@ function scheduleFromMedication(medication) {
   if (medication) {
     normalizedSchedule(medication).forEach((slot) => {
       if (schedule[slot.id]) {
-        schedule[slot.id] = { checked: true, displayTime: slot.time, time: slot.time };
+        schedule[slot.id] = { checked: true, displayTime: slot.displayTime || slot.time, time: slot.time };
       }
     });
   }
   return schedule;
+}
+
+function formReturnRoute({ medicationId, returnRoute, editing }) {
+  const route = returnRoute || (editing ? routes.medicationDetail : routes.medications);
+  return {
+    route,
+    ...(route === routes.medicationDetail && medicationId ? { medicationId } : {}),
+    replace: true,
+  };
 }
 
 const styles = StyleSheet.create({

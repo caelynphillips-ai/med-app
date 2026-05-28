@@ -23,7 +23,7 @@ export function RemindersScreen({ medications, onNavigate }) {
             Cards follow saved schedules. Local phone reminders also require notification permission.
           </Text>
         </View>
-        <ActionButton onPress={() => onNavigate({ route: routes.medicationForm })}>Add medication</ActionButton>
+        <ActionButton onPress={() => onNavigate({ route: routes.medicationForm, returnRoute: routes.reminders })}>Add medication</ActionButton>
       </View>
 
       {reminders.length ? (
@@ -32,7 +32,7 @@ export function RemindersScreen({ medications, onNavigate }) {
             accessibilityLabel={`Open details for ${medication.name}`}
             accessibilityRole="button"
             key={medication.id}
-            onPress={() => onNavigate({ route: routes.medicationDetail, medicationId: medication.id })}
+            onPress={() => onNavigate({ route: routes.medicationDetail, medicationId: medication.id, returnRoute: routes.reminders })}
             style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
           >
             <Text selectable style={styles.name}>
@@ -56,7 +56,7 @@ export function RemindersScreen({ medications, onNavigate }) {
           <Text selectable style={styles.emptyText}>
             Turn on reminder-style cards while adding or editing a medication.
           </Text>
-          <ActionButton onPress={() => onNavigate({ route: routes.medicationForm })}>Add medication</ActionButton>
+          <ActionButton onPress={() => onNavigate({ route: routes.medicationForm, returnRoute: routes.reminders })}>Add medication</ActionButton>
         </View>
       )}
     </View>

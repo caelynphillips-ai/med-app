@@ -4,6 +4,7 @@ export type PersistedDoseStatus = "taken" | "skipped" | "missed";
 export type ClientName = "web" | "desktop" | "ios";
 
 export interface MedicationScheduleSlot {
+  displayTime?: string | null;
   id: string;
   label: string;
   time: string;

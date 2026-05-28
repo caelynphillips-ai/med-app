@@ -72,7 +72,7 @@ export function MedicationsScreen({ medications, onDelete, onNavigate }) {
             Search, filter, and manage each saved medication.
           </Text>
         </View>
-        <ActionButton onPress={() => onNavigate({ route: routes.medicationForm })}>Add medication</ActionButton>
+        <ActionButton onPress={() => onNavigate({ route: routes.medicationForm, returnRoute: routes.medications })}>Add medication</ActionButton>
       </View>
 
       {medications.length ? (
@@ -91,8 +91,8 @@ export function MedicationsScreen({ medications, onDelete, onNavigate }) {
             key={medication.id}
             medication={medication}
             onDelete={() => confirmDelete(medication)}
-            onDetails={() => onNavigate({ route: routes.medicationDetail, medicationId: medication.id })}
-            onEdit={() => onNavigate({ route: routes.medicationForm, medicationId: medication.id })}
+            onDetails={() => onNavigate({ route: routes.medicationDetail, medicationId: medication.id, returnRoute: routes.medications })}
+            onEdit={() => onNavigate({ route: routes.medicationForm, medicationId: medication.id, returnRoute: routes.medications })}
           />
         ))
       ) : medications.length ? (
@@ -113,7 +113,7 @@ export function MedicationsScreen({ medications, onDelete, onNavigate }) {
           <Text selectable style={styles.emptyText}>
             Add your first medication, vitamin, or supplement to start building today's schedule.
           </Text>
-          <ActionButton onPress={() => onNavigate({ route: routes.medicationForm })}>Add medication</ActionButton>
+          <ActionButton onPress={() => onNavigate({ route: routes.medicationForm, returnRoute: routes.medications })}>Add medication</ActionButton>
         </View>
       )}
     </View>

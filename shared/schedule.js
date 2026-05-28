@@ -17,6 +17,7 @@ export function normalizedSchedule(med, slots = defaultScheduleSlots) {
   if (Array.isArray(med?.schedule) && med.schedule.length) {
     return med.schedule
       .map((slot) => ({
+        displayTime: slot.displayTime || slot.time || "",
         id: slot.id || slug(slot.label || slot.time || "dose"),
         label: slot.label || titleCase(slot.id || "Dose"),
         time: slot.time || slots.find((entry) => entry.id === slot.id)?.time || "09:00",
@@ -30,12 +31,12 @@ export function normalizedSchedule(med, slots = defaultScheduleSlots) {
 export function scheduleMapForForm(med, slots = defaultScheduleSlots) {
   const schedule = {};
   slots.forEach((slot) => {
-    schedule[slot.id] = { checked: !med && slot.id === "morning", time: slot.time };
+    schedule[slot.id] = { checked: !med && slot.id === "morning", displayTime: slot.time, time: slot.time };
   });
   if (med) {
     normalizedSchedule(med, slots).forEach((slot) => {
       if (schedule[slot.id]) {
-        schedule[slot.id] = { checked: true, time: slot.time };
+        schedule[slot.id] = { checked: true, displayTime: slot.displayTime || slot.time, time: slot.time };
       }
     });
   }

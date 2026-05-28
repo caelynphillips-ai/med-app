@@ -1,5 +1,5 @@
 import React from "react";
-import { StatusBar, Text, View } from "react-native";
+import { BackHandler, StatusBar, Text, View } from "react-native";
 import { MobileShell } from "../components/mobile-shell.js";
 import { useMobileMedications } from "../hooks/use-mobile-medications.js";
 import { routes } from "./routes.js";
@@ -14,10 +14,46 @@ import { colors } from "../theme/tokens.js";
 
 export function MobileApp() {
   const mobile = useMobileMedications();
-  const [route, setRoute] = React.useState({ route: routes.today });
+  const [routeStack, setRouteStack] = React.useState([{ route: routes.today }]);
+  const route = routeStack[routeStack.length - 1] || { route: routes.today };
+  const canGoBackRef = React.useRef(false);
+
+  React.useEffect(() => {
+    canGoBackRef.current = routeStack.length > 1;
+  }, [routeStack.length]);
+
+  const goBack = React.useCallback(() => {
+    if (!canGoBackRef.current) {
+      return false;
+    }
+    setRouteStack((current) => (current.length > 1 ? current.slice(0, -1) : current));
+    return true;
+  }, []);
+
+  React.useEffect(() => {
+    const subscription = BackHandler.addEventListener("hardwareBackPress", goBack);
+    return () => subscription.remove();
+  }, [goBack]);
 
   function navigate(nextRoute) {
-    setRoute(nextRoute);
+    const { replace, reset, ...targetRoute } = nextRoute || { route: routes.today };
+    setRouteStack((current) => {
+      const stack = current.length ? current : [{ route: routes.today }];
+      if (reset) {
+        return [targetRoute];
+      }
+      if (replace) {
+        const previous = stack[stack.length - 2];
+        if (previous && sameRoute(previous, targetRoute)) {
+          return stack.slice(0, -1);
+        }
+        return [...stack.slice(0, -1), targetRoute];
+      }
+      if (sameRoute(stack[stack.length - 1], targetRoute)) {
+        return stack;
+      }
+      return [...stack, targetRoute];
+    });
   }
 
   const selectedMedication = route.medicationId
@@ -61,13 +97,17 @@ export function MobileApp() {
   );
 }
 
+function sameRoute(a, b) {
+  return a?.route === b?.route && (a?.medicationId || "") === (b?.medicationId || "");
+}
+
 function renderRoute(route, mobile, selectedMedication, navigate) {
   if (route.route === routes.medications) {
     return <MedicationsScreen medications={mobile.medications} onDelete={mobile.deleteMedication} onNavigate={navigate} />;
   }
 
   if (route.route === routes.medicationDetail) {
-    return <MedicationDetailScreen medication={selectedMedication} onDelete={mobile.deleteMedication} onNavigate={navigate} />;
+    return <MedicationDetailScreen medication={selectedMedication} onDelete={mobile.deleteMedication} onNavigate={navigate} returnRoute={route.returnRoute} />;
   }
 
   if (route.route === routes.medicationForm) {
@@ -105,9 +145,9 @@ function renderRoute(route, mobile, selectedMedication, navigate) {
       medications={mobile.medications}
       statuses={mobile.statuses}
       onAddMedication={() => navigate({ route: routes.medicationForm, returnRoute: routes.today })}
-      onEditMedication={(medicationId) => navigate({ route: routes.medicationForm, medicationId })}
+      onEditMedication={(medicationId) => navigate({ route: routes.medicationForm, medicationId, returnRoute: routes.today })}
       onMarkDose={mobile.markDose}
-      onOpenMedication={(medicationId) => navigate({ route: routes.medicationDetail, medicationId })}
+      onOpenMedication={(medicationId) => navigate({ route: routes.medicationDetail, medicationId, returnRoute: routes.today })}
     />
   );
 }

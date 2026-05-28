@@ -28,11 +28,15 @@ export function StatusButton({ label, selected, status, onPress }) {
 
 const styles = StyleSheet.create({
   button: {
+    alignItems: "center",
     borderColor: colors.border,
     borderWidth: 1,
     borderCurve: "continuous",
     borderRadius: radius.pill,
+    flex: 1,
+    justifyContent: "center",
     minHeight: 38,
+    minWidth: 72,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
   },

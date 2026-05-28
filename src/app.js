@@ -406,6 +406,7 @@ async function saveMedication(form) {
       return;
     }
     selectedSchedule.push({
+      displayTime: String(rawTime || "").trim(),
       id: slot.id,
       label: slot.label,
       time: normalizedTime,
@@ -1636,7 +1637,7 @@ function renderMedicationForm(med = null) {
                         <input type="checkbox" name="slot-${slot.id}" ${value.checked ? "checked" : ""} />
                         ${slot.label}
                       </label>
-                      <input class="time-entry" type="text" name="time-${slot.id}" value="${escapeAttribute(value.time || slot.time)}" placeholder="8 AM or 18:00" aria-label="${slot.label} time" />
+                      <input class="time-entry" type="text" name="time-${slot.id}" value="${escapeAttribute(value.displayTime || value.time || slot.time)}" placeholder="8 AM or 18:00" aria-label="${slot.label} time" />
                     </div>
                   `;
                 })

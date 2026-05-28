@@ -2,7 +2,6 @@ import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { categoryLabels, intakeLabels } from "../../../shared/medicationSchema.js";
 import { formatClock } from "../../../shared/dateTime.js";
-import { statusLabel } from "../../../shared/doseStatus.js";
 import { colors, radius, shadows, spacing, typography } from "../theme/tokens.js";
 import { StatusButton } from "./status-button.js";
 
@@ -54,10 +53,7 @@ export function DoseCard({ dose, onEditMedication, onOpenDetails, onStatusChange
           </View>
         </View>
 
-        <View style={styles.metaRow}>
-          <View style={styles.statusChip}>
-            <Text style={styles.statusText}>{statusLabel(dose.status)}</Text>
-          </View>
+        <View style={styles.supportRow}>
           {intakeMissing ? (
             <PromptChip label={intake} onPress={onEditMedication} />
           ) : (
@@ -122,9 +118,11 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
   },
   buttonRow: {
+    flex: 1,
     flexDirection: "row",
     flexWrap: "wrap",
     gap: spacing.xs,
+    minWidth: 226,
     rowGap: spacing.xs,
   },
   card: {
@@ -186,12 +184,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
   },
-  metaRow: {
+  supportRow: {
     alignItems: "center",
     flexDirection: "row",
     flexWrap: "wrap",
     gap: spacing.sm,
-    paddingTop: spacing.xs,
   },
   name: {
     color: colors.onPrimary,
@@ -226,20 +223,6 @@ const styles = StyleSheet.create({
     color: colors.onEmphasisMuted,
     fontSize: typography.small,
     opacity: 0.78,
-  },
-  statusChip: {
-    backgroundColor: "rgba(255, 255, 255, 0.16)",
-    borderColor: "rgba(255, 255, 255, 0.24)",
-    borderCurve: "continuous",
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-  },
-  statusText: {
-    color: colors.onPrimary,
-    fontSize: typography.label,
-    fontWeight: "900",
   },
   time: {
     color: colors.onPrimary,

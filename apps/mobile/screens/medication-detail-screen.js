@@ -14,7 +14,7 @@ import { ActionButton } from "../components/action-button.js";
 import { colors, radius, shadows, spacing, typography } from "../theme/tokens.js";
 import { routes } from "../navigation/routes.js";
 
-export function MedicationDetailScreen({ medication, onDelete, onNavigate }) {
+export function MedicationDetailScreen({ medication, onDelete, onNavigate, returnRoute }) {
   const [deleting, setDeleting] = React.useState(false);
   const refillInfo = getRefillInfo(medication);
   const schedule = medication ? normalizedSchedule(medication) : [];
@@ -25,7 +25,7 @@ export function MedicationDetailScreen({ medication, onDelete, onNavigate }) {
         <Text selectable style={styles.title}>
           Medication not found
         </Text>
-        <ActionButton tone="quiet" onPress={() => onNavigate({ route: routes.medications })}>
+        <ActionButton tone="quiet" onPress={() => onNavigate({ route: returnRoute || routes.medications, replace: true })}>
           Back to medications
         </ActionButton>
       </View>
@@ -78,11 +78,11 @@ export function MedicationDetailScreen({ medication, onDelete, onNavigate }) {
   return (
     <View style={styles.screen}>
       <View style={styles.headerRow}>
-        <ActionButton disabled={deleting} tone="quiet" onPress={() => onNavigate({ route: routes.medications })}>
-          Back to medications
+        <ActionButton disabled={deleting} tone="quiet" onPress={() => onNavigate({ route: returnRoute || routes.medications, replace: true })}>
+          {returnRoute === routes.today ? "Back to today" : returnRoute === routes.reminders ? "Back to reminders" : "Back to medications"}
         </ActionButton>
         <View style={styles.headerActions}>
-          <ActionButton disabled={deleting} tone="quiet" onPress={() => onNavigate({ route: routes.medicationForm, medicationId: medication.id })}>
+          <ActionButton disabled={deleting} tone="quiet" onPress={() => onNavigate({ route: routes.medicationForm, medicationId: medication.id, returnRoute: routes.medicationDetail })}>
             Edit
           </ActionButton>
           <ActionButton disabled={deleting} tone="danger" onPress={confirmDelete}>
@@ -111,7 +111,7 @@ export function MedicationDetailScreen({ medication, onDelete, onNavigate }) {
           <InfoBlock label="Notes" value={medication.notes} wide />
         ) : (
           <View style={styles.noteAction}>
-            <ActionButton tone="quiet" onPress={() => onNavigate({ route: routes.medicationForm, medicationId: medication.id })}>
+            <ActionButton tone="quiet" onPress={() => onNavigate({ route: routes.medicationForm, medicationId: medication.id, returnRoute: routes.medicationDetail })}>
               Add notes
             </ActionButton>
           </View>

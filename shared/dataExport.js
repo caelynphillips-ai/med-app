@@ -97,6 +97,7 @@ function cleanSchedule(schedule = []) {
   }
   return schedule.map((slot) =>
     removeEmptyValues({
+      displayTime: slot?.displayTime || "",
       id: slot?.id || "",
       label: slot?.label || "",
       time: slot?.time || "",
