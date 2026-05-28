@@ -333,8 +333,10 @@ const styles = StyleSheet.create({
   },
   card: {
     ...shadows.card,
-    backgroundColor: colors.cardEmphasis,
-    borderColor: "rgba(0, 128, 255, 0.38)",
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderLeftColor: colors.primary,
+    borderLeftWidth: 6,
     borderWidth: 1,
     borderCurve: "continuous",
     borderRadius: radius.lg,
@@ -354,7 +356,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   cardActions: {
-    borderColor: "rgba(255, 255, 255, 0.2)",
+    borderColor: colors.border,
     borderTopWidth: 1,
     flexDirection: "row",
     flexWrap: "wrap",
@@ -385,7 +387,7 @@ const styles = StyleSheet.create({
     fontWeight: "900",
   },
   detail: {
-    color: colors.onEmphasisMuted,
+    color: colors.mutedText,
     fontSize: typography.small,
     fontWeight: "800",
     lineHeight: 20,
@@ -511,7 +513,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   name: {
-    color: colors.onPrimary,
+    color: colors.text,
     fontSize: 21,
     fontWeight: "900",
     lineHeight: 25,
@@ -521,8 +523,8 @@ const styles = StyleSheet.create({
   },
   promptChip: {
     alignSelf: "flex-start",
-    backgroundColor: "rgba(255, 255, 255, 0.16)",
-    borderColor: "rgba(255, 255, 255, 0.36)",
+    backgroundColor: colors.primarySoft,
+    borderColor: "#B9D9FF",
     borderCurve: "continuous",
     borderRadius: radius.pill,
     borderWidth: 1,
@@ -531,7 +533,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
   },
   promptChipText: {
-    color: colors.onPrimary,
+    color: colors.darkPrimary,
     fontSize: typography.small,
     fontWeight: "900",
   },
@@ -540,8 +542,8 @@ const styles = StyleSheet.create({
   },
   quickAction: {
     alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.12)",
-    borderColor: "rgba(255, 255, 255, 0.32)",
+    backgroundColor: colors.white,
+    borderColor: colors.border,
     borderCurve: "continuous",
     borderRadius: radius.pill,
     borderWidth: 1,
@@ -553,8 +555,8 @@ const styles = StyleSheet.create({
   },
   quickActionDanger: {
     alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.88)",
-    borderColor: "rgba(255, 255, 255, 0.42)",
+    backgroundColor: colors.alertSoft,
+    borderColor: "rgba(217, 122, 92, 0.42)",
     borderCurve: "continuous",
     borderRadius: radius.pill,
     borderWidth: 1,
@@ -571,7 +573,7 @@ const styles = StyleSheet.create({
   },
   quickActionPrimary: {
     alignItems: "center",
-    backgroundColor: "rgba(253, 252, 248, 0.94)",
+    backgroundColor: colors.primary,
     borderCurve: "continuous",
     borderRadius: radius.pill,
     justifyContent: "center",
@@ -581,18 +583,18 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
   },
   quickActionPrimaryText: {
-    color: colors.darkPrimary,
+    color: colors.onPrimary,
     fontSize: typography.small,
     fontWeight: "900",
   },
   quickActionText: {
-    color: colors.onPrimary,
+    color: colors.darkPrimary,
     fontSize: typography.small,
     fontWeight: "900",
   },
   refillPill: {
     alignSelf: "flex-start",
-    backgroundColor: colors.successSoft,
+    backgroundColor: colors.primarySoft,
     borderCurve: "continuous",
     borderRadius: radius.pill,
     paddingHorizontal: spacing.md,
@@ -602,7 +604,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.alertSoft,
   },
   refillPillText: {
-    color: colors.text,
+    color: colors.darkPrimary,
     fontSize: typography.label,
     fontWeight: "900",
   },
@@ -619,7 +621,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
   },
   schedule: {
-    color: colors.onEmphasisMuted,
+    color: colors.mutedText,
     fontSize: typography.small,
     fontWeight: "800",
     lineHeight: 19,
@@ -630,8 +632,8 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   scanItem: {
-    backgroundColor: "rgba(255, 255, 255, 0.16)",
-    borderColor: "rgba(255, 255, 255, 0.3)",
+    backgroundColor: colors.background,
+    borderColor: colors.border,
     borderCurve: "continuous",
     borderRadius: radius.sm,
     borderWidth: 1,
@@ -641,13 +643,13 @@ const styles = StyleSheet.create({
     padding: spacing.md,
   },
   scanLabel: {
-    color: colors.onEmphasisMuted,
+    color: colors.darkPrimary,
     fontSize: typography.label,
     fontWeight: "900",
     textTransform: "uppercase",
   },
   scanValue: {
-    color: colors.onPrimary,
+    color: colors.text,
     fontSize: typography.body,
     fontWeight: "900",
     lineHeight: 21,

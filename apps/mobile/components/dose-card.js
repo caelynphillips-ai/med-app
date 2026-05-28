@@ -169,14 +169,14 @@ const styles = StyleSheet.create({
     fontWeight: "900",
   },
   intake: {
-    color: colors.onEmphasisMuted,
+    color: colors.darkPrimary,
     flexShrink: 1,
     fontSize: typography.small,
     fontWeight: "800",
   },
   intakeChip: {
-    backgroundColor: "rgba(255, 255, 255, 0.12)",
-    borderColor: "rgba(255, 255, 255, 0.22)",
+    backgroundColor: "rgba(253, 252, 248, 0.92)",
+    borderColor: "#B9D9FF",
     borderCurve: "continuous",
     borderRadius: radius.pill,
     borderWidth: 1,
@@ -200,8 +200,8 @@ const styles = StyleSheet.create({
   },
   promptChip: {
     alignSelf: "flex-start",
-    backgroundColor: "rgba(255, 255, 255, 0.16)",
-    borderColor: "rgba(255, 255, 255, 0.36)",
+    backgroundColor: colors.white,
+    borderColor: "#B9D9FF",
     borderCurve: "continuous",
     borderRadius: radius.pill,
     borderWidth: 1,
@@ -210,7 +210,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
   },
   promptChipText: {
-    color: colors.onPrimary,
+    color: colors.darkPrimary,
     fontSize: typography.small,
     fontWeight: "900",
   },

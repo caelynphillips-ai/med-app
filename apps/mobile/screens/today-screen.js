@@ -1,6 +1,7 @@
 import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { fullDateLabel, formatClock } from "../../../shared/dateTime.js";
+import { ActionButton } from "../components/action-button.js";
 import { DisclaimerCard } from "../components/disclaimer-card.js";
 import { DoseCard } from "../components/dose-card.js";
 import { SummaryCard } from "../components/summary-card.js";
@@ -25,16 +26,19 @@ export function TodayScreen({ medications, statuses, onAddMedication, onEditMedi
 
   return (
     <View style={styles.screen}>
-      <View style={styles.titleBlock}>
-        <Text selectable style={styles.eyebrow}>
-          {fullDateLabel().toUpperCase()}
-        </Text>
-        <Text selectable style={styles.title}>
-          Today's schedule
-        </Text>
-        <Text selectable style={styles.subtitle}>
-          Review today's doses and mark each one as you go.
-        </Text>
+      <View style={styles.headerRow}>
+        <View style={styles.titleBlock}>
+          <Text selectable style={styles.eyebrow}>
+            {fullDateLabel().toUpperCase()}
+          </Text>
+          <Text selectable style={styles.title}>
+            Today's schedule
+          </Text>
+          <Text selectable style={styles.subtitle}>
+            Review today's doses and mark each one as you go.
+          </Text>
+        </View>
+        <ActionButton onPress={onAddMedication}>Add medication</ActionButton>
       </View>
 
       <View style={styles.heroCard}>
@@ -230,13 +234,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
   },
+  headerRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.md,
+    justifyContent: "space-between",
+  },
   pressed: {
     opacity: 0.78,
   },
   promptChip: {
     alignSelf: "flex-start",
-    backgroundColor: "rgba(255, 255, 255, 0.16)",
-    borderColor: "rgba(255, 255, 255, 0.36)",
+    backgroundColor: colors.white,
+    borderColor: "#B9D9FF",
     borderCurve: "continuous",
     borderRadius: 999,
     borderWidth: 1,
@@ -245,7 +256,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
   },
   promptChipText: {
-    color: colors.onPrimary,
+    color: colors.darkPrimary,
     fontSize: typography.small,
     fontWeight: "900",
   },

@@ -77,7 +77,7 @@ export function MobileShell({ activeRoute, children, error, onNavigate, user, on
                 onPress={() => onNavigate({ route: item.route })}
                 style={[styles.navItem, active && styles.navItemActive]}
               >
-                <Text style={[styles.navIcon, active && styles.navIconActive]}>{item.icon}</Text>
+                <NavIcon active={active} name={item.icon} />
                 <Text style={[styles.navLabel, active && styles.navLabelActive]}>{item.label}</Text>
               </Pressable>
             );
@@ -86,6 +86,63 @@ export function MobileShell({ activeRoute, children, error, onNavigate, user, on
 
         {children}
       </ScrollView>
+    </View>
+  );
+}
+
+function NavIcon({ active, name }) {
+  const iconColor = active ? colors.onPrimary : colors.darkPrimary;
+
+  if (name === "calendar") {
+    return (
+      <View style={styles.navIconBox}>
+        <View style={[styles.calendarIcon, { borderColor: iconColor }]}>
+          <View style={[styles.calendarTopLine, { backgroundColor: iconColor }]} />
+          <View style={styles.calendarDotRow}>
+            <View style={[styles.calendarDot, { backgroundColor: iconColor }]} />
+            <View style={[styles.calendarDot, { backgroundColor: iconColor }]} />
+          </View>
+        </View>
+      </View>
+    );
+  }
+
+  if (name === "pill") {
+    return (
+      <View style={styles.navIconBox}>
+        <View style={[styles.pillIcon, { borderColor: iconColor }]}>
+          <View style={[styles.pillDivider, { backgroundColor: iconColor }]} />
+        </View>
+      </View>
+    );
+  }
+
+  if (name === "clock") {
+    return (
+      <View style={styles.navIconBox}>
+        <View style={[styles.clockIcon, { borderColor: iconColor }]}>
+          <View style={[styles.clockHandTall, { backgroundColor: iconColor }]} />
+          <View style={[styles.clockHandShort, { backgroundColor: iconColor }]} />
+        </View>
+      </View>
+    );
+  }
+
+  if (name === "bell") {
+    return (
+      <View style={styles.navIconBox}>
+        <View style={[styles.bellIcon, { borderColor: iconColor }]}>
+          <View style={[styles.bellBase, { backgroundColor: iconColor }]} />
+        </View>
+        <View style={[styles.bellClapper, { backgroundColor: iconColor }]} />
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.navIconBox}>
+      <View style={[styles.lockShackle, { borderColor: iconColor }]} />
+      <View style={[styles.lockBody, { borderColor: iconColor }]} />
     </View>
   );
 }
@@ -146,6 +203,72 @@ const styles = StyleSheet.create({
     fontSize: typography.body,
     fontWeight: "900",
   },
+  bellBase: {
+    borderRadius: 3,
+    bottom: -4,
+    height: 2,
+    left: 1,
+    position: "absolute",
+    right: 1,
+  },
+  bellClapper: {
+    borderRadius: 999,
+    height: 3,
+    marginTop: -1,
+    width: 3,
+  },
+  bellIcon: {
+    borderTopLeftRadius: 8,
+    borderTopRightRadius: 8,
+    borderWidth: 2,
+    height: 13,
+    width: 13,
+  },
+  calendarDot: {
+    borderRadius: 999,
+    height: 2,
+    width: 2,
+  },
+  calendarDotRow: {
+    flexDirection: "row",
+    gap: 4,
+    justifyContent: "center",
+    marginTop: 3,
+  },
+  calendarIcon: {
+    borderRadius: 3,
+    borderWidth: 2,
+    height: 15,
+    overflow: "hidden",
+    width: 15,
+  },
+  calendarTopLine: {
+    height: 3,
+    width: "100%",
+  },
+  clockHandShort: {
+    borderRadius: 999,
+    height: 2,
+    left: 7,
+    position: "absolute",
+    top: 7,
+    width: 4,
+  },
+  clockHandTall: {
+    borderRadius: 999,
+    height: 6,
+    left: 6,
+    position: "absolute",
+    top: 3,
+    width: 2,
+  },
+  clockIcon: {
+    borderRadius: 999,
+    borderWidth: 2,
+    height: 16,
+    position: "relative",
+    width: 16,
+  },
   content: {
     gap: spacing.lg,
     padding: spacing.xl,
@@ -176,25 +299,16 @@ const styles = StyleSheet.create({
     padding: spacing.xs,
     rowGap: spacing.xs,
   },
-  navIcon: {
-    backgroundColor: colors.primarySoft,
-    borderRadius: radius.pill,
-    color: colors.darkPrimary,
-    fontSize: typography.small,
-    fontWeight: "900",
-    height: 26,
-    lineHeight: 26,
-    overflow: "hidden",
-    textAlign: "center",
-    width: 26,
-  },
-  navIconActive: {
-    backgroundColor: colors.onPrimary,
-    color: colors.darkPrimary,
+  navIconBox: {
+    alignItems: "center",
+    height: 18,
+    justifyContent: "center",
+    width: 18,
   },
   navItem: {
     alignItems: "center",
-    borderColor: "transparent",
+    backgroundColor: colors.primarySoft,
+    borderColor: colors.border,
     borderWidth: 1,
     borderCurve: "continuous",
     borderRadius: radius.pill,
@@ -205,6 +319,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     minWidth: 92,
     minHeight: 44,
+    paddingHorizontal: spacing.sm,
   },
   navItemActive: {
     backgroundColor: colors.cardEmphasis,
@@ -218,6 +333,35 @@ const styles = StyleSheet.create({
   },
   navLabelActive: {
     color: colors.onPrimary,
+  },
+  lockBody: {
+    borderRadius: 3,
+    borderWidth: 2,
+    height: 10,
+    marginTop: -2,
+    width: 14,
+  },
+  lockShackle: {
+    borderTopLeftRadius: 7,
+    borderTopRightRadius: 7,
+    borderWidth: 2,
+    borderBottomWidth: 0,
+    height: 8,
+    width: 10,
+  },
+  pillDivider: {
+    height: 13,
+    transform: [{ rotate: "28deg" }],
+    width: 2,
+  },
+  pillIcon: {
+    alignItems: "center",
+    borderRadius: 999,
+    borderWidth: 2,
+    height: 12,
+    justifyContent: "center",
+    transform: [{ rotate: "-28deg" }],
+    width: 19,
   },
   shell: {
     backgroundColor: colors.background,

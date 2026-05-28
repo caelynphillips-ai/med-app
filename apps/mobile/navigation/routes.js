@@ -9,9 +9,9 @@ export const routes = {
 };
 
 export const navItems = [
-  { route: routes.today, label: "Today", icon: "T" },
-  { route: routes.medications, label: "Meds", icon: "M" },
-  { route: routes.history, label: "History", icon: "H" },
-  { route: routes.reminders, label: "Reminders", icon: "R" },
-  { route: routes.privacy, label: "Privacy", icon: "P" },
+  { route: routes.today, label: "Today", icon: "calendar" },
+  { route: routes.medications, label: "Meds", icon: "pill" },
+  { route: routes.history, label: "History", icon: "clock" },
+  { route: routes.reminders, label: "Reminders", icon: "bell" },
+  { route: routes.privacy, label: "Privacy", icon: "lock" },
 ];
