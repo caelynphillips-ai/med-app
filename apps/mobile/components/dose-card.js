@@ -122,7 +122,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     gap: spacing.xs,
-    minWidth: 226,
+    minWidth: 210,
     rowGap: spacing.xs,
   },
   card: {
@@ -234,9 +234,9 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255, 255, 255, 0.14)",
     gap: spacing.xs,
     justifyContent: "center",
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: spacing.sm,
     paddingVertical: spacing.lg,
-    width: 116,
+    width: 104,
   },
   titleColumn: {
     flex: 1,

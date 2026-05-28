@@ -21,7 +21,9 @@ export function StatusButton({ label, selected, status, onPress }) {
         pressed && styles.pressed,
       ]}
     >
-      <Text style={styles.text}>{label}</Text>
+      <Text adjustsFontSizeToFit minimumFontScale={0.9} numberOfLines={1} style={styles.text}>
+        {label}
+      </Text>
     </Pressable>
   );
 }
@@ -36,8 +38,8 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     minHeight: 38,
-    minWidth: 72,
-    paddingHorizontal: spacing.md,
+    minWidth: 66,
+    paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
   },
   pressed: {
@@ -48,7 +50,8 @@ const styles = StyleSheet.create({
   },
   text: {
     color: colors.text,
-    fontSize: typography.small,
+    fontSize: 12,
+    lineHeight: 15,
     fontWeight: "900",
     textAlign: "center",
   },
