@@ -1,5 +1,6 @@
 import {
   onAuthStateChanged,
+  signInAnonymously,
   signInWithPopup,
   signOut,
 } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-auth.js";
@@ -12,6 +13,10 @@ export function observeAuthState(onChange) {
 export async function signInWithGoogle() {
   provider.setCustomParameters({ prompt: "select_account" });
   await signInWithPopup(auth, provider);
+}
+
+export async function startFirebasePreviewSession() {
+  await signInAnonymously(auth);
 }
 
 export async function signOutUser() {

@@ -5,7 +5,7 @@ import {
 } from "./rxterms.js";
 import { categories, CLIENT_NAME, intakeLabels, MEDICATION_SCHEMA_VERSION, slotDefinitions } from "./config/constants.js";
 import { deleteCurrentAccount } from "./services/accountDeletionService.js";
-import { observeAuthState, signInWithGoogle, signOutUser } from "./services/authService.js";
+import { observeAuthState, signInWithGoogle, signOutUser, startFirebasePreviewSession } from "./services/authService.js";
 import {
   getDoseStatusHistoryRecords,
   subscribeToDoseStatusRecord,
@@ -143,6 +143,10 @@ root.addEventListener("click", async (event) => {
 
   if (action === "sign-in") {
     await handleSignIn();
+  }
+
+  if (action === "preview-sign-in") {
+    await handlePreviewSignIn();
   }
 
   if (action === "sign-out") {
@@ -368,6 +372,17 @@ async function handleSignIn() {
   setBusy(true);
   try {
     await signInWithGoogle();
+  } catch (error) {
+    showToast(messageFromError(error), "error");
+  } finally {
+    setBusy(false);
+  }
+}
+
+async function handlePreviewSignIn() {
+  setBusy(true);
+  try {
+    await startFirebasePreviewSession();
   } catch (error) {
     showToast(messageFromError(error), "error");
   } finally {
@@ -806,6 +821,8 @@ function renderSignedOutApp() {
         <h2>Sign in to begin</h2>
         <p class="subtle">Save your organizer to your account and keep it with you.</p>
         <button class="button primary full" type="button" data-action="sign-in" ${state.busy ? "disabled" : ""}>Continue with Google</button>
+        <button class="button tonal full" type="button" data-action="preview-sign-in" ${state.busy ? "disabled" : ""}>Continue in Preview mode</button>
+        <p class="auth-preview-copy">Preview mode saves temporarily for testing on this device.</p>
         <div class="notice">
           <strong>Medical disclaimer</strong>
           <span>This app is for personal organization only and does not provide medical advice.</span>

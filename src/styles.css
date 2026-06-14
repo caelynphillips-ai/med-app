@@ -1553,6 +1553,14 @@ fieldset.field {
   background: var(--md-accent-teal);
 }
 
+.auth-preview-copy {
+  margin: -4px 4px 2px;
+  color: var(--md-on-surface-variant);
+  font-size: 0.88rem;
+  line-height: 1.45;
+  text-align: center;
+}
+
 .loading-bar {
   position: relative;
   height: 6px;

@@ -18,6 +18,10 @@ export function messageFromError(error) {
     return "For safety, Firebase needs a fresh sign-in before deleting this account. Sign out, sign back in, then try deleting the account again.";
   }
 
+  if (code === "auth/admin-restricted-operation" || code === "auth/operation-not-allowed") {
+    return "Preview mode is not enabled for this Firebase project yet. Enable Anonymous sign-in in Firebase Authentication, then try again.";
+  }
+
   if (code === "account/attachment-delete-failed") {
     return "One or more uploaded attachments could not be deleted, so the account was not deleted. Check your connection and try again.";
   }
