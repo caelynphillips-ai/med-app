@@ -70,22 +70,21 @@ These values currently point to the original development accounts and should be 
 | Expo owner | `caelynphillips.ux` | Transfer project or create under partner Expo account. |
 | EAS project ID | `0068d222-a2af-437b-8f51-99a36e73074a` | Replace after `eas init` in partner account. |
 | GitHub repository | `caelynphillips-ai/med-app` | Transfer repo or update references. |
-| Firebase project ID | `med-test-7a252` | Replace with partner Firebase project. |
-| Firebase auth domain | `med-test-7a252.firebaseapp.com` | Replace from partner Firebase web config. |
-| Firebase storage bucket | `med-test-7a252.firebasestorage.app` | Replace from partner Firebase web config. |
-| Firebase messaging sender ID | `501078768121` | Replace from partner Firebase web config. |
-| Firebase app ID | `1:501078768121:web:8b4e1dc443f807793be528` | Replace from partner Firebase web config. |
-| Firebase API key | Checked into Firebase client config files | Replace from partner Firebase web config. |
+| Firebase project ID | `azur-well` | Keep aligned across local and EAS environments. |
+| Firebase auth domain | `azur-well.firebaseapp.com` | Keep aligned with the Firebase web app. |
+| Firebase storage bucket | `azur-well.firebasestorage.app` | Keep aligned with the Firebase web app. |
+| Firebase messaging sender ID | Environment-managed | Set `EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`. |
+| Firebase app ID | Environment-managed | Set `EXPO_PUBLIC_FIREBASE_APP_ID`. |
+| Firebase API key | Environment-managed | Set `EXPO_PUBLIC_FIREBASE_API_KEY`; do not put it in `.env.example`. |
 | Android package | `com.caelynphillips.medorganizer` | Replace before Play Console/OAuth setup if partner owns a different package. |
 | iOS bundle ID | `com.caelynphillips.medorganizer` | Replace before Apple Developer/OAuth setup if partner owns a different bundle ID. |
 | Desktop app ID | `com.medorganizer.desktop` | Replace before signed desktop distribution if needed. |
 
-Files that currently contain account-specific values:
+Files and environments that define account-specific values:
 
-- `firebaseConfig.js`
-- `apps/mobile/services/firebase-client.js`
-- `apps/mobile/services/firebase-client.native.js`
-- `apps/desktop/renderer/firebaseConfig.js` after running desktop sync
+- `.env.local` for local web, Expo, and desktop development
+- EAS `development`, `preview`, and `production` environments
+- `apps/desktop/renderer/firebaseConfig.js` after desktop sync; this generated folder is ignored
 - `shared/app-constants.json`
 - `app.json`
 - `eas.json`
@@ -93,7 +92,7 @@ Files that currently contain account-specific values:
 
 ## Replace Before Handoff Checklist
 
-- Replace Firebase project config in every Firebase client file.
+- Set the required `EXPO_PUBLIC_FIREBASE_*` variables in every EAS environment.
 - Replace `app.json` `owner`, `extra.eas.projectId`, `extra.firebaseProjectId`, and `extra.githubRepository`.
 - Decide whether Android package and iOS bundle ID stay as-is or move to partner-owned IDs.
 - Create Google OAuth clients for web, Android, and iOS.
@@ -304,4 +303,3 @@ Run this after partner account setup, not during this documentation handoff.
 - Firebase rules tests pass.
 - GitHub Actions checks pass.
 - Confirm no data is written outside the documented user-owned Firebase paths.
-

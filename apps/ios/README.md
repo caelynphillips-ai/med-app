@@ -9,7 +9,7 @@ This is the native SwiftUI iOS client source for Azur Well. It uses the same Fir
 
 ## What You Need On A Mac
 
-1. Open the Firebase Console for project `med-test-7a252`.
+1. Open the Firebase Console for project `azur-well`.
 2. Add an iOS app with bundle id `com.caelynphillips.medorganizer`, or replace this with the partner-owned production bundle ID before Firebase/OAuth setup.
 3. Download `GoogleService-Info.plist`.
 4. Put it in:

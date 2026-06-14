@@ -93,7 +93,7 @@ function isAllowedAuthUrl(url) {
     return [
       "accounts.google.com",
       "apis.google.com",
-      "med-test-7a252.firebaseapp.com"
+      "azur-well.firebaseapp.com"
     ].some((host) => parsed.hostname === host || parsed.hostname.endsWith(`.${host}`));
   } catch {
     return false;

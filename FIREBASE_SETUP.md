@@ -3,7 +3,7 @@
 Firebase project:
 
 ```text
-med-test-7a252
+azur-well
 ```
 
 If the app says `missing or insufficient permissions`, Firebase is denying the Firestore or Storage request. Publish the checked-in rules exactly from:

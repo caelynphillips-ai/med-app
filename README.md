@@ -45,7 +45,7 @@ The SwiftUI iOS app source is in:
 apps/ios/MedOrganizer/MedOrganizer
 ```
 
-iOS builds require macOS and Xcode. Add an iOS app to Firebase project `med-test-7a252`, download `GoogleService-Info.plist`, and follow `apps/ios/README.md`.
+iOS builds require macOS and Xcode. Add an iOS app to Firebase project `azur-well`, download `GoogleService-Info.plist`, and follow `apps/ios/README.md`.
 
 ## Shared Contract
 

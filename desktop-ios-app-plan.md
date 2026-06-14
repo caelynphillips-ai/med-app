@@ -76,7 +76,7 @@ This can be introduced gradually. The current files do not need to move immediat
 Keep using the existing Firebase project:
 
 ```text
-med-test-7a252
+azur-well
 ```
 
 Add each new app to the same Firebase project:
@@ -992,4 +992,3 @@ If offline write support is added, define conflict behavior before launch.
 6. Create a SwiftUI iOS prototype with Firebase Auth, Firestore, and Storage.
 7. Run cross-client sync tests.
 8. Decide whether shared team/caregiver access is in scope for v1 or v2.
-

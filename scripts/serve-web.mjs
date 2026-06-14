@@ -8,6 +8,7 @@ const root = resolve(__dirname, "..");
 const host = process.env.HOST || "127.0.0.1";
 const port = Number(process.env.PORT || 5173);
 const localEnv = loadLocalEnv();
+const expectedFirebaseProjectId = "azur-well";
 
 const mimeTypes = {
   ".html": "text/html; charset=utf-8",
@@ -52,7 +53,21 @@ function firebaseConfigFromEnv() {
     appId: envValue("EXPO_PUBLIC_FIREBASE_APP_ID", "FIREBASE_APP_ID"),
   };
   const requiredFields = ["apiKey", "authDomain", "projectId", "storageBucket", "messagingSenderId", "appId"];
-  return requiredFields.every((field) => Boolean(config[field])) ? config : null;
+  const missingFields = requiredFields.filter((field) => !config[field]);
+
+  if (missingFields.length) {
+    throw new Error(
+      `Firebase configuration is incomplete. Missing: ${missingFields.join(", ")}. Add the required EXPO_PUBLIC_FIREBASE_* values to .env.local.`,
+    );
+  }
+
+  if (config.projectId !== expectedFirebaseProjectId) {
+    throw new Error(
+      `Azur Well must use Firebase project "${expectedFirebaseProjectId}", but "${config.projectId}" was configured.`,
+    );
+  }
+
+  return config;
 }
 
 function loadLocalEnv() {
@@ -85,13 +100,20 @@ export { app, firebaseConfig };
 
 const server = createServer((request, response) => {
   if ((request.url || "").split("?")[0] === "/firebaseConfig.js") {
-    const envFirebaseConfig = firebaseConfigFromEnv();
-    if (envFirebaseConfig) {
+    try {
+      const envFirebaseConfig = firebaseConfigFromEnv();
       response.writeHead(200, {
         "Content-Type": mimeTypes[".js"],
         "Cross-Origin-Opener-Policy": "same-origin-allow-popups"
       });
       response.end(renderFirebaseConfigModule(envFirebaseConfig));
+      return;
+    } catch (error) {
+      response.writeHead(500, {
+        "Content-Type": "text/javascript; charset=utf-8",
+        "Cross-Origin-Opener-Policy": "same-origin-allow-popups"
+      });
+      response.end(`throw new Error(${JSON.stringify(error.message)});`);
       return;
     }
   }

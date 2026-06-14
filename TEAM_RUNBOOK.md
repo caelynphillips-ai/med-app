@@ -29,7 +29,7 @@ The browser app remains at the root so the current local URL keeps working. The 
 Firebase project:
 
 ```text
-med-test-7a252
+azur-well
 ```
 
 Shared paths:
@@ -129,7 +129,7 @@ apps/ios/MedOrganizer/MedOrganizer
 
 On a Mac:
 
-1. Add an iOS app to Firebase project `med-test-7a252`.
+1. Add an iOS app to Firebase project `azur-well`.
 2. Use bundle id `com.caelynphillips.medorganizer`.
 3. Download `GoogleService-Info.plist`.
 4. Put it at:

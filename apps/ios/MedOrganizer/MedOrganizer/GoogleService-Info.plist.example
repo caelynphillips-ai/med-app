@@ -3,6 +3,6 @@
 <plist version="1.0">
 <dict>
   <key>README</key>
-  <string>Replace this example with the real GoogleService-Info.plist downloaded from Firebase Console for project med-test-7a252 and bundle id com.medorganizer.ios.</string>
+  <string>Replace this example with the real GoogleService-Info.plist downloaded from Firebase Console for project azur-well and bundle id com.caelynphillips.medorganizer.</string>
 </dict>
 </plist>

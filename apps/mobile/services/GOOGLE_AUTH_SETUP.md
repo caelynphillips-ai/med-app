@@ -33,7 +33,7 @@ Use the debug/dev-build fingerprint for local testing and the EAS/Play signing f
 
 In Firebase Console:
 
-1. Open the `med-test-7a252` project.
+1. Open the `azur-well` project.
 2. Go to Authentication > Sign-in method.
 3. Enable the Google provider.
 4. Add or confirm the iOS app with bundle ID `com.caelynphillips.medorganizer`.

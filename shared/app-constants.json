@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "firebaseProjectId": "med-test-7a252",
+  "firebaseProjectId": "azur-well",
   "clientNames": ["web", "desktop", "ios"],
   "categories": ["prescription", "over-the-counter", "vitamin", "supplement"],
   "intakeInstructions": ["food", "water", "empty"],
