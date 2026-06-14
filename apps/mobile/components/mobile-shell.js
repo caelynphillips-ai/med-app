@@ -31,7 +31,7 @@ export function MobileShell({ activeRoute, children, error, onNavigate, user, on
               {authSubtitle}
             </Text>
           </View>
-          {user ? (
+          {user && !isPreviewSession ? (
             <Pressable accessibilityRole="button" onPress={onSignOut} disabled={busy} style={styles.authButton}>
               <Text style={styles.authButtonText}>Sign out</Text>
             </Pressable>
@@ -39,20 +39,28 @@ export function MobileShell({ activeRoute, children, error, onNavigate, user, on
             <View style={styles.authActionsStack}>
               <View style={styles.authActions}>
                 <Pressable accessibilityRole="button" onPress={onGoogleSignIn} disabled={busy} style={styles.authButton}>
-                  <Text style={styles.authButtonText}>Google sign-in</Text>
+                  <Text style={styles.authButtonText}>Continue with Google</Text>
                 </Pressable>
-                <Pressable
-                  accessibilityLabel="Start preview mode with a temporary Firebase account"
-                  accessibilityRole="button"
-                  onPress={onPreviewSignIn}
-                  disabled={busy}
-                  style={styles.authButton}
-                >
-                  <Text style={styles.authButtonText}>Preview mode</Text>
-                </Pressable>
+                {isPreviewSession ? (
+                  <Pressable accessibilityRole="button" onPress={onSignOut} disabled={busy} style={styles.authButton}>
+                    <Text style={styles.authButtonText}>Sign out</Text>
+                  </Pressable>
+                ) : (
+                  <Pressable
+                    accessibilityLabel="Start preview mode with a temporary Firebase account"
+                    accessibilityRole="button"
+                    onPress={onPreviewSignIn}
+                    disabled={busy}
+                    style={styles.authButton}
+                  >
+                    <Text style={styles.authButtonText}>Preview mode</Text>
+                  </Pressable>
+                )}
               </View>
               <Text selectable style={styles.authHint}>
-                Preview mode is temporary and not connected to Google.
+                {isPreviewSession
+                  ? "Connect Google to keep this Preview data with your account."
+                  : "Preview mode is temporary and not connected to Google."}
               </Text>
             </View>
           )}

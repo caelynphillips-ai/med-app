@@ -1,6 +1,6 @@
 # Native Google Auth Setup
 
-This mobile app uses the same Firebase project, Firestore paths, Storage paths, and medication schema as the web app. Native Google sign-in is not enabled yet because it needs platform OAuth client IDs and signing credentials from Firebase/Google Cloud.
+This mobile app uses the same Firebase project, Firestore paths, Storage paths, and medication schema as the web app. Android Google sign-in uses `@react-native-google-signin/google-signin` to exchange a Google ID token for a Firebase credential.
 
 ## App Identifiers
 
@@ -12,13 +12,13 @@ Keep these values aligned with `app.json`, Firebase, Google Cloud, and EAS. Chan
 
 ## Required OAuth Clients
 
-Create or confirm these Google OAuth clients before wiring native account sync:
+Create or confirm these Google OAuth clients:
 
 - iOS OAuth client ID for `com.caelynphillips.medorganizer`
 - Android OAuth client ID for `com.caelynphillips.medorganizer`
 - Web client ID for Firebase/AuthSession token exchange
 
-Do not add fake or placeholder client IDs to the app. Store real client IDs in app config or environment-specific config once they exist.
+Set the Web OAuth client ID as `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` in the EAS `development`, `preview`, and `production` environments. The client ID is public configuration, but placeholder or mismatched IDs must not be built into the app.
 
 ## Android Signing Fingerprints
 
@@ -39,7 +39,7 @@ In Firebase Console:
 4. Add or confirm the iOS app with bundle ID `com.caelynphillips.medorganizer`.
 5. Add or confirm the Android app with package `com.caelynphillips.medorganizer`.
 6. Add the required Android SHA-1 and SHA-256 fingerprints.
-7. Download platform config files only if the final auth approach requires native config files.
+7. Download `google-services.json` after adding the Android fingerprints.
 
 The mobile app must keep using the existing user paths:
 
@@ -56,14 +56,15 @@ In Google Cloud Console:
 3. Confirm the iOS OAuth client uses the iOS bundle ID above.
 4. Confirm the Android OAuth client uses the Android package and SHA fingerprints above.
 5. Confirm the Web OAuth client is available for Firebase/AuthSession credential exchange.
-6. Add redirect URIs required by the final Expo auth approach.
+6. Confirm the Web client ID used by `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` belongs to the `azur-well` project.
 
 ## EAS And Dev Build Notes
 
-- Expo Go can be used for general app testing, but production-like Google auth should be tested in an EAS development or preview build.
+- Google sign-in requires an EAS development or preview build and does not run in Expo Go.
 - Android preview builds need the same package name and matching SHA fingerprints registered in Firebase/Google Cloud.
 - iOS builds need the same bundle ID and Apple team credentials used for the OAuth client.
 - Keep preview mode available until real native Google auth is confirmed on physical devices.
+- Upload the ignored `google-services.json` as an EAS file environment variable named `GOOGLE_SERVICES_JSON` for each Android build environment.
 
 ## Current Temporary Preview Mode
 
@@ -72,6 +73,6 @@ The current native preview path uses Firebase anonymous auth. It is intentionall
 - It creates a Firebase user.
 - It does not use the user's Google account.
 - It does not sync with the same account as web Google sign-in.
-- It is only for testing the mobile screens, Firestore reads/writes, Storage behavior, and dose status updates before native Google auth is ready.
+- It remains available for testing the mobile screens, Firestore reads/writes, Storage behavior, and dose status updates without connecting a Google account.
 
-Once the OAuth clients and signing fingerprints are configured, replace the native branch in `auth-service.js` with the real Google sign-in flow.
+When a Preview user signs in with a Google account that is not already used by Firebase, the anonymous account is linked in place so its data remains under the same UID. If the Google account already exists, Azur Well leaves the Preview account and its data untouched and explains that it cannot merge the accounts automatically.

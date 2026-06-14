@@ -2,8 +2,40 @@ export function describeMobileError(error, action = "Action") {
   const code = error?.code || "";
   const message = error?.message || String(error || "Something went wrong.");
 
-  if (code === "auth/native-google-not-configured") {
-    return "Native Google sign-in is not configured yet. Use Preview mode for temporary testing until iOS, Android, and Web OAuth client IDs are added.";
+  if (code === "auth/google-missing-web-client-id") {
+    return "Google sign-in is missing its Web OAuth client ID. Add EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID to the EAS environment and rebuild the app.";
+  }
+
+  if (code === "auth/google-configuration-mismatch" || code === "auth/google-missing-id-token") {
+    return "Google could not verify this Android build. Confirm the package name, Web OAuth client ID, SHA fingerprints, and google-services.json for the azur-well Firebase project, then rebuild.";
+  }
+
+  if (code === "auth/google-play-services-unavailable") {
+    return "Google Play services are unavailable or out of date on this device. Update Google Play services and try again.";
+  }
+
+  if (code === "auth/google-sign-in-in-progress") {
+    return "Google sign-in is already open. Finish or close it before trying again.";
+  }
+
+  if (code === "auth/google-network-request-failed") {
+    return "Google sign-in could not reach Google or Firebase. Check the connection and try again.";
+  }
+
+  if (
+    code === "auth/preview-google-account-exists"
+    || code === "auth/credential-already-in-use"
+    || code === "auth/provider-already-linked"
+  ) {
+    return "This Google account already has an Azur Well account. Your Preview data is still safe on this device and was not deleted or moved. Sign out only when you are ready to use the existing Google account without the Preview data.";
+  }
+
+  if (code === "auth/account-exists-with-different-credential" || code === "auth/email-already-in-use") {
+    return "That email already belongs to an Azur Well account with another sign-in method. Your current data was not changed.";
+  }
+
+  if (code === "auth/operation-not-allowed" && /google/i.test(action)) {
+    return "Google sign-in is not enabled for this Firebase project. Enable the Google provider in Firebase Authentication and rebuild if configuration changed.";
   }
 
   if (code === "auth/admin-restricted-operation" || code === "auth/operation-not-allowed") {
@@ -15,7 +47,7 @@ export function describeMobileError(error, action = "Action") {
   }
 
   if (code === "unauthenticated") {
-    return `${action} needs an active Firebase session. Firebase returned ${code}: ${message}. Use Preview mode before saving or syncing medications.`;
+    return `${action} needs an active Firebase session. Firebase returned ${code}: ${message}. Sign in with Google or use Preview mode before saving or syncing medications.`;
   }
 
   if (code === "auth/requires-recent-login") {

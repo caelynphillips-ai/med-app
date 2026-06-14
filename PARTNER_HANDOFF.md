@@ -60,15 +60,15 @@ The current Expo app is rooted at the repository root through `App.js`, `app.jso
 
 ## Account-Specific Values To Replace
 
-These values currently point to the original development accounts and should be replaced or transferred before partner handoff.
+These values reflect the current partner-owned Expo and Firebase projects.
 
 | Area | Current value | Handoff action |
 | --- | --- | --- |
 | App name | `Azur Well` | Keep unless partner renames the product. |
 | Expo slug | `med-app` | Keep or replace before creating partner EAS project. |
 | URL scheme | `medorganizer` | Replace if bundle/package/app identity changes. |
-| Expo owner | `caelynphillips.ux` | Transfer project or create under partner Expo account. |
-| EAS project ID | `0068d222-a2af-437b-8f51-99a36e73074a` | Replace after `eas init` in partner account. |
+| Expo owner | `blackicebell` | Keep under the partner Expo account. |
+| EAS project ID | `28848b7c-4d4f-4eea-a887-0ebc4b760bbc` | Keep aligned with `app.json`. |
 | GitHub repository | `caelynphillips-ai/med-app` | Transfer repo or update references. |
 | Firebase project ID | `azur-well` | Keep aligned across local and EAS environments. |
 | Firebase auth domain | `azur-well.firebaseapp.com` | Keep aligned with the Firebase web app. |
@@ -221,10 +221,14 @@ Current status:
 
 - Web Google sign-in works through Firebase Auth.
 - Desktop Google sign-in uses the synced web renderer and Firebase Auth.
-- Expo native Google sign-in is not implemented yet.
+- Expo Android Google sign-in is implemented with Firebase credential exchange.
+- Anonymous Preview accounts are linked in place when the selected Google account is unused.
+- Existing Google accounts are not merged automatically; Preview data remains untouched and the app explains the conflict.
+- Android implementation still needs a fresh EAS preview build and real-device validation.
+- Expo iOS Google sign-in remains future setup work.
 - Expo Preview mode uses Firebase Anonymous Auth and is intentionally temporary.
 
-Required OAuth clients before native mobile account sync:
+Required OAuth clients for mobile account sync:
 
 - Web OAuth client ID.
 - Android OAuth client ID for the Android package and SHA fingerprints.
@@ -236,7 +240,7 @@ Implementation notes live in:
 apps/mobile/services/GOOGLE_AUTH_SETUP.md
 ```
 
-Do not remove Preview mode until native Google sign-in has been implemented and tested on real Android and iOS devices.
+Do not remove Preview mode until native account sign-in has been tested on real Android and iOS devices.
 
 ## Apple And iOS Account Notes
 
@@ -275,10 +279,10 @@ The partner Firebase project must use the current Storage rules so users can lis
 
 ## Known Launch Blockers
 
-- Native Google sign-in for Expo mobile still needs OAuth client IDs and implementation.
+- Android Google sign-in needs fresh-build and real-device validation.
+- iOS Google sign-in and Sign in with Apple still need implementation and Apple account setup.
 - iOS App Store/TestFlight build needs Apple Developer setup.
 - Android Play Store release needs Play Console setup, package ownership decision, store listing, privacy policy, and support URL.
-- Production Firebase project and rules deployment are not yet under partner ownership.
 - Real-device notification testing still needs to be completed after partner builds.
 - Formal full QA pass has not been run for this handoff phase.
 - Desktop distribution still needs signing if desktop release is part of launch.
@@ -298,7 +302,7 @@ Run this after partner account setup, not during this documentation handoff.
 - Expo Android preview APK opens on a real device.
 - Mobile medication list, detail, Add/Edit, reminders, refills, history, privacy, and account deletion.
 - Local notification permission prompt and reminder scheduling on Android.
-- Native Google sign-in once implemented.
+- Android Google sign-in, Preview-account linking, cancellation, and existing-account conflict handling.
 - iOS build/test on physical device or TestFlight.
 - Firebase rules tests pass.
 - GitHub Actions checks pass.

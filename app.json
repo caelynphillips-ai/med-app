@@ -42,7 +42,8 @@
           "color": "#0080FF",
           "defaultChannel": "medication-reminders"
         }
-      ]
+      ],
+      "@react-native-google-signin/google-signin"
     ]
   }
 }

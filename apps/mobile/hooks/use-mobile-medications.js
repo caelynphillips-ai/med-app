@@ -3,7 +3,7 @@ import { Alert } from "react-native";
 import { MEDICATION_SCHEMA_VERSION } from "../../../shared/medicationSchema.js";
 import { todayKey } from "../../../shared/dateTime.js";
 import { getRecentDateKeys } from "../../../shared/adherence.js";
-import { observeAuthState, signInWithGoogle, signOutUser, startFirebasePreviewSession } from "../services/auth-service.js";
+import { observeAuthState, signInWithGoogle, signOutUser, startFirebasePreviewSession } from "../services/auth-service";
 import { deleteCurrentAccount } from "../services/account-deletion-service.js";
 import {
   getDoseStatusHistoryRecords,
@@ -42,9 +42,6 @@ export function useMobileMedications() {
     return observeAuthState((nextUser) => {
       setUser(nextUser);
       setAuthReady(true);
-      if (nextUser?.isAnonymous) {
-        setError((current) => (current.includes("Native Google sign-in is not configured") ? "" : current));
-      }
       if (!nextUser) {
         setMedications([]);
         setStatuses({});
@@ -145,6 +142,10 @@ export function useMobileMedications() {
     try {
       await signInWithGoogle();
     } catch (err) {
+      if (err?.code === "auth/google-sign-in-cancelled") {
+        setError("");
+        return;
+      }
       logMobileError("Google sign-in failed", err);
       const message = describeMobileError(err, "Google sign-in");
       setError(message);
@@ -225,7 +226,7 @@ export function useMobileMedications() {
 
   async function saveMedication(medication, existingId = "") {
     if (!user) {
-      throw new Error("Use Preview mode before saving medications. Google sign-in is not configured on native Android yet.");
+      throw new Error("Sign in with Google or use Preview mode before saving medications.");
     }
 
     const medId = existingId || medication.id || "";

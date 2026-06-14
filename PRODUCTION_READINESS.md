@@ -46,7 +46,9 @@ Expo mobile:
 
 - Preview mode uses Firebase anonymous auth.
 - Anonymous auth must stay enabled while Preview mode exists.
-- Native Google sign-in is not ready until iOS, Android, and Web OAuth client IDs plus Android SHA-1/SHA-256 fingerprints are configured.
+- Android Google sign-in is implemented with Firebase credential exchange and Preview-account linking.
+- Android Google sign-in still requires a fresh EAS preview build and real-device validation.
+- iOS Google sign-in and Sign in with Apple remain future production setup work.
 - See `apps/mobile/services/GOOGLE_AUTH_SETUP.md`.
 
 ## Error And Offline Behavior
@@ -113,12 +115,12 @@ Before a preview or production build:
 3. Run `npx expo export --platform android` locally.
 4. Build Android preview with `eas build --platform android --profile preview`.
 5. Test on a real Android device.
-6. Configure native Google OAuth before relying on Google account sync in mobile.
+6. Validate Android Google sign-in and Preview-account linking in the fresh preview build.
 7. For iOS, configure Apple credentials and test a TestFlight/dev build on a real device.
 
 ## Release Blockers
 
-- Native Google sign-in for Expo mobile is not implemented.
+- Android Google sign-in needs fresh-build and real-device validation; iOS native auth is not implemented.
 - No formal offline sync or conflict handling exists.
 - Store metadata, privacy policy URL, support URL, and screenshots are not prepared.
 - Desktop app distribution still needs code signing.
