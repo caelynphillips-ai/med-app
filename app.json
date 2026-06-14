@@ -30,10 +30,10 @@
       "firebaseProjectId": "azur-well",
       "githubRepository": "caelynphillips-ai/med-app",
       "eas": {
-        "projectId": "0068d222-a2af-437b-8f51-99a36e73074a"
+        "projectId": "28848b7c-4d4f-4eea-a887-0ebc4b760bbc"
       }
     },
-    "owner": "caelynphillips.ux",
+    "owner": "blackicebell",
     "plugins": [
       "expo-web-browser",
       [
